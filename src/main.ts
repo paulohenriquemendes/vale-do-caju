@@ -83,7 +83,7 @@ function on(id: string, fn: () => void) {
   document.getElementById(id)?.addEventListener("click", fn);
 }
 function shell(content: string) {
-  app.innerHTML = `<header class="site"><div class="brand"><img src="/icon.svg" alt="">VALE DO CAJU</div><nav><span>Pacajus, Ceará · Brasil</span><button id="about" class="ghost">Sobre o jogo ↗</button></nav></header>${content}`;
+  app.innerHTML = `<header class="site"><div class="brand"><img src="/icon.svg" alt="">VALE DO CAJU FARM</div><nav><span>Pacajus, Ceará · Brasil</span><button id="about" class="ghost">Sobre o jogo ↗</button></nav></header>${content}`;
   on("about", about);
 }
 function landing() {
@@ -191,7 +191,7 @@ function closeModal() {
 function about() {
   modal(
     "Uma história que nasce da terra",
-    `<p>Vale do Caju é um jogo de agricultura familiar ambientado em uma comunidade fictícia da zona rural de Pacajus, Ceará, em 2027.</p><p>Explore o sítio, cuide da família, colha cajus e leve sua produção à feira. Suas escolhas conectam água, alimentação e economia.</p><p class="note">MVP em desenvolvimento para o Ceará Científico 2027. Os ciclos e preços são simplificações de jogo. Campanha até 2050, beneficiamento industrial e pesquisa com estudantes são etapas futuras.</p><button id="about-privacy" class="ghost full">Uso e privacidade</button>`,
+    `<p>Vale do Caju Farm é um jogo de agricultura familiar ambientado em uma comunidade fictícia da zona rural de Pacajus, Ceará, em 2027.</p><p>Explore o sítio, cuide da família, colha cajus e leve sua produção à feira. Suas escolhas conectam água, alimentação e economia.</p><p class="note">MVP em desenvolvimento para o Ceará Científico 2027. Os ciclos e preços são simplificações de jogo. Campanha até 2050, beneficiamento industrial e pesquisa com estudantes são etapas futuras.</p><button id="about-privacy" class="ghost full">Uso e privacidade</button>`,
     () => on("about-privacy", privacy),
   );
 }

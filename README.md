@@ -1,4 +1,4 @@
-# VALE DO CAJU
+# VALE DO CAJU FARM
 
 Jogo web mobile-first sobre agricultura familiar em uma comunidade fictícia de Pacajus, Ceará. Primeiro capítulo jogável em 2027; não é a campanha completa até 2050.
 
@@ -117,7 +117,7 @@ A inspeção no navegador verificou o galinheiro, o bloqueio de coleta repetida,
 
 O cenário final mantém a identidade retrô moderna com solo arenoso, capim seco, cactos, vegetação de caatinga, casas mais simples e barreiro com pouca água. A revisão visual preserva as posições interativas e representa a época seca da comunidade fictícia.
 
-![Cenário semiárido do Vale do Caju](artifacts/vale-do-caju-semiarido.png)
+![Cenário semiárido do Vale do Caju Farm](artifacts/vale-do-caju-semiarido.png)
 
 
 ## Versão 0.3 — setores, entregas e abertura direta
