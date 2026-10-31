@@ -48,7 +48,9 @@ Configure `RESET_WEBHOOK_URL` e `RESET_WEBHOOK_TOKEN` no servidor. O endpoint de
 ```sh
 npm ci
 npm run build
+# Aplicar docs/production-schema.sql como administrador no Supabase
 # Definir NODE_ENV=production, DATABASE_URL e APP_ORIGIN=https://seu-dominio
+# Usar o login vale_game, com senha privada em PGPASSWORD no servidor
 npm start
 ```
 
@@ -129,3 +131,10 @@ Validação local: build TypeScript/Vite e 15 testes aprovados, incluindo relóg
 ### Hospedagem
 
 O GitHub mantém o código. GitHub Pages sozinho não executa Fastify/PostgreSQL, portanto não atende ao jogo completo. `server.ts` e `vercel.json` preparam a implantação Fastify na Vercel; a implantação remota ainda precisa ser executada e validada. Configure PostgreSQL persistente por `DATABASE_URL`, `NODE_ENV=production` e `APP_ORIGIN` com a origem HTTPS final. A conta demo e o banco local não devem ser copiados para produção. Não foi publicado um endereço público nesta revisão.
+
+
+## Hospedagem
+
+O GitHub Pages publica `pages/index.html`, que abre o jogo na Vercel. O redirecionamento mantém o jogo e a API na mesma origem, permitindo cookies seguros e partidas persistentes. O Pages não executa o servidor Node.js.
+
+Em produção, o esquema deve ser aplicado antes de iniciar o servidor; a aplicação não cria tabelas no boot. No Supabase, use Transaction pooler com o usuário `vale_game.<project-ref>` e a senha privada do papel `vale_game`. Configure `PGPASSWORD` como segredo na Vercel. Não use a chave publicável como senha de banco.

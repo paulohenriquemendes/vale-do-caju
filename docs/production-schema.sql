@@ -1,0 +1,54 @@
+-- Run with the database administrator, never from a browser.
+-- The application uses its own authenticated API; anon/authenticated have no access.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'vale_game') THEN
+    CREATE ROLE vale_game NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  END IF;
+END $$;
+SET search_path TO public;
+CREATE TABLE IF NOT EXISTS family_world(id INTEGER PRIMARY KEY,treasury INTEGER NOT NULL DEFAULT 0);
+INSERT INTO family_world(id,treasury) VALUES(1,0) ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,nickname TEXT NOT NULL,password TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id) ON DELETE CASCADE,expires BIGINT NOT NULL);
+CREATE TABLE IF NOT EXISTS saves(user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,state JSONB NOT NULL);
+CREATE TABLE IF NOT EXISTS commands(user_id TEXT REFERENCES users(id) ON DELETE CASCADE,id TEXT NOT NULL,PRIMARY KEY(user_id,id));
+CREATE TABLE IF NOT EXISTS presence(user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, x REAL NOT NULL,y REAL NOT NULL,location TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'livre',seen BIGINT NOT NULL);
+CREATE TABLE IF NOT EXISTS resets(token TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id) ON DELETE CASCADE,expires BIGINT NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS resets_user_id_idx ON resets(user_id);
+GRANT USAGE ON SCHEMA public TO vale_game;
+ALTER TABLE family_world ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON family_world FROM anon,authenticated,PUBLIC;
+GRANT SELECT,INSERT,UPDATE,DELETE ON family_world TO vale_game;
+DROP POLICY IF EXISTS backend_access ON family_world;
+CREATE POLICY backend_access ON family_world FOR ALL TO vale_game USING (true) WITH CHECK (true);
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON users FROM anon,authenticated,PUBLIC;
+GRANT SELECT,INSERT,UPDATE,DELETE ON users TO vale_game;
+DROP POLICY IF EXISTS backend_access ON users;
+CREATE POLICY backend_access ON users FOR ALL TO vale_game USING (true) WITH CHECK (true);
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON sessions FROM anon,authenticated,PUBLIC;
+GRANT SELECT,INSERT,UPDATE,DELETE ON sessions TO vale_game;
+DROP POLICY IF EXISTS backend_access ON sessions;
+CREATE POLICY backend_access ON sessions FOR ALL TO vale_game USING (true) WITH CHECK (true);
+ALTER TABLE saves ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON saves FROM anon,authenticated,PUBLIC;
+GRANT SELECT,INSERT,UPDATE,DELETE ON saves TO vale_game;
+DROP POLICY IF EXISTS backend_access ON saves;
+CREATE POLICY backend_access ON saves FOR ALL TO vale_game USING (true) WITH CHECK (true);
+ALTER TABLE commands ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON commands FROM anon,authenticated,PUBLIC;
+GRANT SELECT,INSERT,UPDATE,DELETE ON commands TO vale_game;
+DROP POLICY IF EXISTS backend_access ON commands;
+CREATE POLICY backend_access ON commands FOR ALL TO vale_game USING (true) WITH CHECK (true);
+ALTER TABLE presence ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON presence FROM anon,authenticated,PUBLIC;
+GRANT SELECT,INSERT,UPDATE,DELETE ON presence TO vale_game;
+DROP POLICY IF EXISTS backend_access ON presence;
+CREATE POLICY backend_access ON presence FOR ALL TO vale_game USING (true) WITH CHECK (true);
+ALTER TABLE resets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON resets FROM anon,authenticated,PUBLIC;
+GRANT SELECT,INSERT,UPDATE,DELETE ON resets TO vale_game;
+DROP POLICY IF EXISTS backend_access ON resets;
+CREATE POLICY backend_access ON resets FOR ALL TO vale_game USING (true) WITH CHECK (true);
