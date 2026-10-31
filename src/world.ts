@@ -10,7 +10,14 @@ export type Member = {
   location: string;
   role: string;
 };
-import { points, type State } from "../shared/game";
+import {
+  points,
+  WORLD,
+  sectors,
+  buyers,
+  type Produce,
+  type State,
+} from "../shared/game";
 export let scene: World | undefined;
 export const stick = { x: 0, y: 0 };
 export let paused = false;
@@ -32,6 +39,10 @@ export class World extends Phaser.Scene {
     }
   >();
   treasury = 0;
+  drops!: Phaser.GameObjects.Graphics;
+  pickupLabels: Phaser.GameObjects.Text[] = [];
+  lastPickup = 0;
+  onPickup: (item: Produce, target: number) => void = () => {};
   map!: Phaser.GameObjects.Container;
   shadow!: Phaser.GameObjects.Ellipse;
   keys!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -52,6 +63,7 @@ export class World extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#789a55");
     this.map = this.add.container(0, 0);
     this.drawMap();
+    this.drops = this.add.graphics().setDepth(1500);
     this.shadow = this.add.ellipse(0, 0, 25, 10, 0x33442c, 0.25);
     this.body = this.add
       .image(0, 0, this.avatarTexture(this.state.skin, 0, 0, this.state.hat))
@@ -94,7 +106,7 @@ export class World extends Phaser.Scene {
     const w = this.scale.width,
       h = this.scale.height;
     this.cameras.main.setZoom(w < 600 ? 1.05 : h < 500 ? 1.1 : 1.35);
-    this.cameras.main.setBounds(0, 0, 1280, 800);
+    this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
   }
   avatarTexture(skin: string, dir: number, frame: number, hat: boolean) {
     const key = `person-${skin}-${dir}-${frame}-${hat}`;
@@ -119,22 +131,32 @@ export class World extends Phaser.Scene {
   drawMap() {
     this.map.removeAll(true);
     if (this.textures.exists("landscape")) this.textures.remove("landscape");
-    const texture = this.textures.createCanvas("landscape", 2560, 1600)!;
+    const texture = this.textures.createCanvas(
+      "landscape",
+      WORLD.width,
+      WORLD.height,
+    )!;
     paintLandscape(texture.canvas, this.state, this.treasury);
     texture.refresh();
     this.map.add(
-      this.add.image(0, 0, "landscape").setOrigin(0).setDisplaySize(1280, 800),
+      this.add
+        .image(0, 0, "landscape")
+        .setOrigin(0)
+        .setDisplaySize(WORLD.width, WORLD.height),
     );
     this.obstacles = [];
     if (this.state.location === "farm") {
       this.obstacles = [
         new Phaser.Geom.Rectangle(112, 89, 220, 151),
-        new Phaser.Geom.Rectangle(87, 384, 140, 112),
         new Phaser.Geom.Rectangle(382, 158, 70, 65),
-        new Phaser.Geom.Rectangle(1065, 99, 174, 156),
-        new Phaser.Geom.Rectangle(1030, 490, 160, 140),
+        new Phaser.Geom.Rectangle(60, WORLD.fenceY - 20, 1060, 28),
+        new Phaser.Geom.Rectangle(1280, WORLD.fenceY - 20, 1220, 28),
+        new Phaser.Geom.Rectangle(765, 650, 175, 130),
+        ...sectors.ovo.map(
+          (p) => new Phaser.Geom.Rectangle(p.x - 60, p.y - 155, 120, 100),
+        ),
         ...points.trees.map(
-          (p) => new Phaser.Geom.Rectangle(p.x - 55, p.y - 120, 108, 116),
+          (p) => new Phaser.Geom.Rectangle(p.x - 22, p.y - 40, 44, 40),
         ),
       ];
       this.npc(
@@ -270,6 +292,14 @@ export class World extends Phaser.Scene {
     if (this.state.location === "home")
       return this.player.y > 510 ? "Sair" : "Descansar";
     const p = this.player;
+    if (
+      this.state.delivery &&
+      Math.hypot(
+        p.x - buyers[this.state.delivery.item].x,
+        p.y - buyers[this.state.delivery.item].y,
+      ) < 85
+    )
+      return "Entregar carga";
     let nearest = "Explorar",
       d = 100;
     const options: [string, { x: number; y: number }][] = [
@@ -279,14 +309,10 @@ export class World extends Phaser.Scene {
       ["Água", points.cistern],
       ["Feira", points.market],
       ["Separar", points.bench],
-      ["Cultivar", points.plots],
-      ["Galinheiro", points.coop],
+
       ["Vender ovos", points.eggBuyer],
       ["Vender caju", points.fruitBuyer],
       ["Vender feijão", points.cropBuyer],
-      ...points.trees.map(
-        (t) => ["Colher", t] as [string, { x: number; y: number }],
-      ),
     ];
     for (const [name, t] of options) {
       const n = Math.hypot(p.x - t.x, p.y - t.y);
@@ -314,7 +340,9 @@ export class World extends Phaser.Scene {
         ),
       );
     }
-    if (!this.player || paused) return;
+    if (!this.player) return;
+    this.paintPickups(_t);
+    if (paused) return;
     let dx = stick.x,
       dy = stick.y;
     if (this.keys.left.isDown) dx = -1;
@@ -326,13 +354,16 @@ export class World extends Phaser.Scene {
     const moving = dx || dy;
     if (moving) {
       this.direction = dx < 0 ? 1 : dx > 0 ? 2 : dy < 0 ? 3 : 0;
-      const speed = (125 * Math.min(delta, 40)) / 1000;
+      const speed = (200 * Math.min(delta, 40)) / 1000;
       const nx = this.player.x + dx * speed,
         ny = this.player.y + dy * speed;
       const inside =
         this.state.location === "home"
           ? nx > 440 && nx < 840 && ny > 260 && ny < 555
-          : nx > 55 && nx < 1220 && ny > 115 && ny < 760;
+          : nx > 55 &&
+            nx < WORLD.width - 55 &&
+            ny > 115 &&
+            ny < WORLD.height - 40;
       const blocked = this.obstacles.some((r) => r.contains(nx, ny));
       if (inside && !blocked) {
         this.player.setPosition(nx, ny);
@@ -363,6 +394,77 @@ export class World extends Phaser.Scene {
           : 0,
     );
   }
+  paintPickups(t: number) {
+    this.drops.clear();
+    this.pickupLabels.forEach((l) => l.setVisible(false));
+    if (this.state.location !== "farm") return;
+    const now = Date.now();
+    let idx = 0;
+    for (const item of ["ovo", "caju", "feijao"] as Produce[])
+      for (const [i, p] of sectors[item].entries()) {
+        const remaining = Math.max(
+          0,
+          Math.ceil(((this.state.pickups?.[`${item}:${i}`] || 0) - now) / 1000),
+        );
+        let label = this.pickupLabels[idx];
+        if (!label)
+          label = this.pickupLabels[idx] = this.add
+            .text(p.x, p.y + 26, "", {
+              fontFamily: "Georgia",
+              fontSize: "11px",
+              color: "#fff0c5",
+              backgroundColor: "#60462de0",
+              padding: { x: 5, y: 3 },
+            })
+            .setOrigin(0.5)
+            .setDepth(1501);
+        label
+          .setVisible(true)
+          .setText(
+            remaining
+              ? `${remaining}s`
+              : `${i + 1} · ${item === "ovo" ? "ovos" : item === "caju" ? "cajus" : "feijão"}`,
+          );
+        idx++;
+        if (remaining) continue;
+        const g = this.drops,
+          y = p.y + Math.sin(t / 280 + i) * 2;
+        g.fillStyle(0x503720, 0.22).fillEllipse(p.x, y + 9, 37, 13);
+        g.lineStyle(1, 0xffdf8e, 0.7).strokeEllipse(p.x, y + 5, 42, 28);
+        for (let j = 0; j < 3; j++) {
+          const x = p.x - 11 + j * 10,
+            yy = y + (j % 2) * 4;
+          g.lineStyle(1.5, 0x6a452b, 1);
+          if (item === "ovo") {
+            g.fillStyle(0xffe7b2)
+              .fillEllipse(x, yy, 9, 13)
+              .strokeEllipse(x, yy, 9, 13);
+          } else if (item === "caju") {
+            g.fillStyle(j % 2 ? 0xe8a32b : 0xcd6030)
+              .fillEllipse(x, yy, 10, 14)
+              .strokeEllipse(x, yy, 10, 14);
+            g.fillStyle(0x87734a).fillEllipse(x + 2, yy + 8, 5, 4);
+            g.fillStyle(0xffd774).fillEllipse(x - 2, yy - 3, 3, 5);
+          } else {
+            g.fillStyle(0xdcc07b)
+              .fillEllipse(x, yy, 7, 18)
+              .strokeEllipse(x, yy, 7, 18);
+            g.lineStyle(1, 0x937748).lineBetween(x, yy - 6, x, yy + 6);
+          }
+        }
+        if (
+          !paused &&
+          now - this.lastPickup > 700 &&
+          (!this.state.delivery ||
+            (this.state.delivery.item === item &&
+              this.state.delivery.quantity < 30)) &&
+          Math.hypot(this.player.x - p.x, this.player.y - p.y) < 30
+        ) {
+          this.lastPickup = now;
+          this.onPickup(item, i);
+        }
+      }
+  }
   sync(s: State) {
     const changed = s.location !== this.state.location;
     const redraw =
@@ -385,11 +487,13 @@ export function startWorld(
   state: State,
   onPosition: (x: number, y: number) => void,
   onContext: (s: string) => void,
+  onPickup: (item: Produce, target: number) => void,
 ) {
   const world = new World();
   world.state = state;
   world.onPosition = onPosition;
   world.onContext = onContext;
+  world.onPickup = onPickup;
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,

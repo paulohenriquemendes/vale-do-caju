@@ -9,9 +9,13 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { z } from "zod";
 import { query, migrate, close } from "./db";
-import { initial, act, restore, type State } from "../shared/game";
+import { initial, act, restore, WORLD, type State } from "../shared/game";
 const prod = process.env.NODE_ENV === "production",
-  origin = process.env.APP_ORIGIN || "http://localhost:5173";
+  origin =
+    process.env.APP_ORIGIN ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "http://localhost:5173");
 if (prod && !origin.startsWith("https://"))
   throw Error("HTTPS obrigatório em produção.");
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -28,7 +32,11 @@ app.addHook("onRequest", async (req, reply) => {
     !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
     req.headers.origin &&
     req.headers.origin !== origin &&
-    !(!prod && req.headers.origin === `http://${req.headers.host}`)
+    !(
+      !prod &&
+      (req.headers.origin === `http://${req.headers.host}` ||
+        req.headers.origin === "http://127.0.0.1:5173")
+    )
   )
     return reply.code(403).send({ error: "Origem não autorizada." });
 });
@@ -48,7 +56,7 @@ async function user(req: any) {
   if (!token)
     throw Object.assign(Error("Entre na sua conta."), { statusCode: 401 });
   const r = await query(
-    "SELECT users.id,users.nickname FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=$1 AND expires>$2",
+    "SELECT users.id,users.nickname,(users.email LIKE '%@guest.valedocaju.invalid') AS guest FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=$1 AND expires>$2",
     [digest(token), Date.now()],
   );
   if (!r.rows[0])
@@ -74,9 +82,82 @@ const credentials = z.object({
   email: z
     .email()
     .max(254)
-    .transform((v) => v.toLowerCase().trim()),
+    .transform((v) => v.toLowerCase().trim())
+    .refine(
+      (v) => !v.endsWith("@guest.valedocaju.invalid"),
+      "Use seu e-mail pessoal.",
+    ),
   password: z.string().min(12).max(128),
 });
+app.post(
+  "/api/guest",
+  { config: { rateLimit: { max: 10, timeWindow: "1 hour" } } },
+  async (req, reply) => {
+    try {
+      return await user(req);
+    } catch (e: any) {
+      if (e.statusCode !== 401) throw e;
+    }
+    const id = randomUUID(),
+      nickname = "Visitante " + randomBytes(2).toString("hex");
+    const password = await hash(randomBytes(32).toString("hex"), {
+      type: argon2id,
+    });
+    await query(
+      `WITH created AS (INSERT INTO users(id,email,nickname,password) VALUES($1,$2,$3,$4) RETURNING id) INSERT INTO saves(user_id,state) SELECT id,$5 FROM created`,
+      [
+        id,
+        `${id}@guest.valedocaju.invalid`,
+        nickname,
+        password,
+        JSON.stringify(initial(nickname)),
+      ],
+    );
+    await session(reply, id);
+    return { id, nickname, guest: true };
+  },
+);
+app.post(
+  "/api/claim",
+  { config: { rateLimit: { max: 6, timeWindow: "1 hour" } } },
+  async (req) => {
+    const u = await user(req);
+    if (!u.guest) throw Error("Esta partida já está vinculada a uma conta.");
+    const b = credentials
+      .extend({ nickname: z.string().trim().min(2).max(30) })
+      .parse(req.body);
+    return locked(u.id, async () => {
+      const saved = (
+        await query("SELECT state FROM saves WHERE user_id=$1", [u.id])
+      ).rows[0].state;
+      const s = restore(saved);
+      s.name = b.nickname;
+      s.family[0].name = b.nickname;
+      s.version++;
+      try {
+        const result = await query(
+          `WITH claimed AS (UPDATE users SET email=$2,nickname=$3,password=$4 WHERE id=$1 AND email LIKE '%@guest.valedocaju.invalid' RETURNING id) UPDATE saves SET state=$5 WHERE user_id IN (SELECT id FROM claimed) RETURNING user_id`,
+          [
+            u.id,
+            b.email,
+            b.nickname,
+            await hash(b.password, { type: argon2id }),
+            JSON.stringify(s),
+          ],
+        );
+        if (!result.rows.length)
+          throw Error("Esta partida já foi vinculada. Entre na sua conta.");
+      } catch (e: any) {
+        if (e.code === "23505")
+          throw Error(
+            "Este e-mail já está cadastrado. Use Entrar para acessar essa conta.",
+          );
+        throw e;
+      }
+      return { id: u.id, nickname: b.nickname, guest: false };
+    });
+  },
+);
 app.post(
   "/api/register",
   { config: { rateLimit: { max: 6, timeWindow: "1 hour" } } },
@@ -277,8 +358,14 @@ app.post("/api/action", async (req) => {
 });
 // The family is shared; inventories and harvest timers remain individual.
 const presenceInput = z.object({
-  x: z.number().min(40).max(1240),
-  y: z.number().min(70).max(740),
+  x: z
+    .number()
+    .min(40)
+    .max(WORLD.width - 40),
+  y: z
+    .number()
+    .min(70)
+    .max(WORLD.height - 40),
   location: z.enum(["farm", "home"]),
   role: z.enum(["livre", "galinheiro", "pomar", "rocado", "agua"]),
 });

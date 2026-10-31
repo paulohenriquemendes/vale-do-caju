@@ -1,8 +1,13 @@
-import { drawCover, loadArtwork } from "./art";
+import { uiIcon } from "./ui-icons";
+import { loadArtwork } from "./art";
 import type { Member } from "./world";
 import "./style.css";
 import {
   initial,
+  sectors,
+  buyers,
+  WORLD,
+  DELIVERY_MS,
   points,
   labels,
   buy,
@@ -14,7 +19,7 @@ import {
 import { startWorld, scene, stick, setPaused } from "./world";
 import type Phaser from "phaser";
 const app = document.querySelector<HTMLDivElement>("#app")!;
-let account: { id: string; nickname: string } | null = null,
+let account: { id: string; nickname: string; guest?: boolean } | null = null,
   state: State | null = null,
   game: Phaser.Game | undefined,
   busy = false,
@@ -42,13 +47,13 @@ const esc = (s: string) =>
 const missions = [
   ["explorar", "Conhecer a propriedade"],
   ["familia", "Conversar com a família"],
-  ["colher", "Colher os primeiros cajus"],
-  ["separar", "Separar as castanhas"],
+  ["colher", "Recolher a primeira produção"],
+  ["entrega", "Entregar uma carga dentro do prazo"],
   ["feira", "Visitar a feira"],
   ["vender", "Realizar a primeira venda"],
   ["comprar", "Comprar suprimentos"],
   ["cuidar", "Cuidar da água e da alimentação"],
-  ["plantar", "Plantar novas culturas"],
+  ["tressetores", "Recolher nos três setores"],
   ["investir", "Investir no futuro"],
 ];
 async function api(path: string, body?: unknown) {
@@ -82,28 +87,18 @@ function shell(content: string) {
   on("about", about);
 }
 function landing() {
-  game?.destroy(true);
-  game = undefined;
-  shell(
-    `<main class="landing"><section class="hero"><div><span class="eyebrow">UM PEDACINHO DO CEARÁ. UMA NOVA HISTÓRIA.</span><h1>Crie raízes.<br>Cultive o <em>amanhã.</em></h1><p>Entre a sombra do cajueiro e o caminho da feira, uma vida inteira espera por você. Seu lugar é aqui, no Vale do Caju.</p><div class="actions"><button id="register" class="primary">Começar minha história &nbsp; →</button><button id="login" class="ghost">Entrar</button></div><small>Feito para jogar no seu celular. Sem instalar nada.</small></div><div class="hero-art"><canvas id="postcard" width="560" height="500" aria-label="Cenário retrô moderno de uma propriedade rural cearense"></canvas><span class="sun-tag">☀ &nbsp; PACAJUS · CEARÁ</span><div class="art-label"><strong>Um lugar para chamar de seu.</strong>A primeira colheita é só o começo.</div></div></section><section class="features"><div class="feature"><span class="symbol">♧</span><div><h3>Da terra à feira</h3><p>Plante, colha e faça sua produção prosperar.</p></div></div><div class="feature"><span class="symbol">⌂</span><div><h3>Uma história em família</h3><p>Cuide de quem caminha junto com você.</p></div></div><div class="feature"><span class="symbol">☀</span><div><h3>Aprender é viver</h3><p>Descubra a riqueza da nossa terra, jogando.</p></div></div></section><footer class="footer"><span>FEITO COM RAÍZES CEARENSES</span><span>Protótipo educacional · Ceará Científico 2027</span></footer></main>`,
-  );
-  on("register", () => auth("register"));
-  on("login", () => auth("login"));
-  postcard();
-}
-function postcard() {
-  const canvas = document.querySelector<HTMLCanvasElement>("#postcard");
-  if (canvas)
-    loadArtwork()
-      .then(() => drawCover(canvas))
-      .catch(() => drawCover(canvas));
+  void boot();
 }
 function auth(kind: "login" | "register" | "forgot" | "reset") {
+  if (game) void api("family/leave", {}).catch(() => {});
+  game?.destroy(true);
+  game = undefined;
+  closeModal();
   const register = kind === "register",
     forgot = kind === "forgot",
     reset = kind === "reset";
   shell(
-    `<main class="auth"><button id="back" class="link">← Voltar ao início</button><div class="eyebrow">BEM-VINDO AO VALE</div><h1>${register ? "Sua história começa aqui" : forgot ? "Recupere seu acesso" : reset ? "Escolha uma nova senha" : "Bom ter você de volta."}</h1><p class="muted">${register ? "Crie sua conta e prepare a primeira colheita." : "Sua propriedade está esperando por você."}</p><form id="auth-form">${register ? '<label>Apelido<input name="nickname" required minlength="2" maxlength="30" autocomplete="nickname"></label>' : ""}${!reset ? '<label>E-mail<input name="email" type="email" required autocomplete="email" placeholder="voce@exemplo.com"></label>' : ""}${!forgot ? '<label>Senha<input id="password" name="password" type="password" required minlength="12" maxlength="128" autocomplete="' + (register || reset ? "new-password" : "current-password") + '" placeholder="Pelo menos 12 caracteres"></label><label class="check"><input type="checkbox" id="show-password"> Mostrar senha</label>' : ""}${register ? '<label>Confirme a senha<input name="confirm" type="password" required minlength="12" autocomplete="new-password"></label><label class="check"><input type="checkbox" required> Li as informações de uso e privacidade.</label><button type="button" id="privacy" class="link">Ler informações de uso e privacidade</button>' : ""}<div class="error" id="auth-error" role="alert"></div><button class="primary" type="submit">${register ? "Criar conta" : forgot ? "Enviar link" : reset ? "Salvar nova senha" : "Entrar e continuar"} →</button></form>${kind === "login" ? '<button id="forgot" class="link">Esqueci minha senha</button><p><small>Ainda não tem uma conta? <button id="signup" class="link">Criar conta</button></small></p>' : ""}</main>`,
+    `<main class="auth"><button id="back" class="link">← Voltar ao sítio</button><div class="eyebrow">BEM-VINDO AO VALE</div><h1>${register ? "Sua história começa aqui" : forgot ? "Recupere seu acesso" : reset ? "Escolha uma nova senha" : "Bom ter você de volta."}</h1><p class="muted">${register ? "Vincule esta partida para continuar em outros aparelhos." : "Sua propriedade está esperando por você."}</p><form id="auth-form">${register ? '<label>Apelido<input name="nickname" required minlength="2" maxlength="30" autocomplete="nickname"></label>' : ""}${!reset ? '<label>E-mail<input name="email" type="email" required autocomplete="email" placeholder="voce@exemplo.com"></label>' : ""}${!forgot ? '<label>Senha<input id="password" name="password" type="password" required minlength="12" maxlength="128" autocomplete="' + (register || reset ? "new-password" : "current-password") + '" placeholder="Pelo menos 12 caracteres"></label><label class="check"><input type="checkbox" id="show-password"> Mostrar senha</label>' : ""}${register ? '<label>Confirme a senha<input name="confirm" type="password" required minlength="12" autocomplete="new-password"></label><label class="check"><input type="checkbox" required> Li as informações de uso e privacidade.</label><button type="button" id="privacy" class="link">Ler informações de uso e privacidade</button>' : ""}<div class="error" id="auth-error" role="alert"></div><button class="primary" type="submit">${register ? "Criar conta" : forgot ? "Enviar link" : reset ? "Salvar nova senha" : "Entrar e continuar"} →</button></form>${kind === "login" ? '<button id="forgot" class="link">Esqueci minha senha</button><p><small>Ainda não tem uma conta? <button id="signup" class="link">Criar conta</button></small></p>' : ""}</main>`,
   );
   on("back", landing);
   on("show-password", () => {
@@ -145,9 +140,15 @@ function auth(kind: "login" | "register" | "forgot" | "reset") {
           auth("login");
           return;
         }
-        account = await api(kind, b);
+        account = await api(register && account?.guest ? "claim" : kind, b);
         state = await api("save");
-        profile();
+        if (!state)
+          state = await api("new", {
+            name: account!.nickname,
+            skin: "terracota",
+            mode: "historia",
+          });
+        await play();
       } catch (e: any) {
         error.textContent = e.message;
       } finally {
@@ -301,7 +302,7 @@ async function play() {
     return;
   }
   chosenRole = localStorage.getItem("vale-role-" + account!.id) || "livre";
-  app.innerHTML = `<main class="game-shell"><div id="world"></div><div class="hud"><div class="hud-card"><div class="eyebrow">SÍTIO BOA ESPERANÇA</div><strong id="date"></strong></div><div class="hud-card resources"><span>◉ <b id="cash"></b></span><span>♧ <span id="water"></span> L</span><span>ϟ <span id="energy-number"></span><div class="energy"><i id="energy"></i></div></span></div><div class="game-top-buttons"><button class="icon-btn siblings-btn" id="siblings" aria-label="Família online"><i class="online-dot"></i><span id="online-count">Família</span></button><button class="icon-btn" id="missions" aria-label="Mapa e missões">☷</button><button class="icon-btn" id="pause" aria-label="Pausar">Ⅱ</button></div></div><div class="quest-pin" id="quest"></div><div class="rotate">↻ Na horizontal, você vê mais do sítio.</div><div class="controls"><div class="joystick" id="joystick" role="group" aria-label="Joystick de movimento"><div class="knob" id="knob"></div></div><div class="action-buttons"><button id="inventory"><span>▣</span>Mochila</button><button id="tool"><span>⚒</span>Ferramenta</button><button id="interact" class="main-action"><span>✦</span><b id="context">Explorar</b></button></div></div><div class="save-status" id="save-status">✓ Progresso salvo</div><div class="keyboard-hint">SETAS para andar &nbsp; · &nbsp; E interagir &nbsp; · &nbsp; I mochila</div></main>`;
+  app.innerHTML = `<main class="game-shell"><div id="world"></div><div class="hud"><div class="hud-card"><div class="eyebrow">SÍTIO BOA ESPERANÇA</div><strong id="date"></strong></div><div class="hud-card resources"><span>◉ <b id="cash"></b></span><span>♧ <span id="water"></span> L</span><span>ϟ <span id="energy-number"></span><div class="energy"><i id="energy"></i></div></span></div><div class="game-top-buttons"><button class="icon-btn siblings-btn" id="siblings" aria-label="Família online">${uiIcon("people")}<i class="online-dot"></i><span id="online-count">Família</span></button><button class="icon-btn" id="missions" aria-label="Mapa e missões">${uiIcon("map")}</button><button class="icon-btn" id="pause" aria-label="Pausar">${uiIcon("pause")}</button></div></div><div class="quest-pin" id="quest"></div><div id="delivery" class="delivery-panel" aria-live="polite"></div><div class="rotate">↻ Na horizontal, você vê mais do sítio.</div><div class="controls"><div class="joystick" id="joystick" role="group" aria-label="Joystick de movimento"><div class="knob" id="knob"></div></div><div class="action-buttons"><button id="inventory">${uiIcon("bag")}<span class="control-label">Mochila</span></button><button id="tool">${uiIcon("map")}<span class="control-label">Rotas</span></button><button id="interact" class="main-action">${uiIcon("hand")}<b class="control-label" id="context">Explorar</b></button></div></div><div class="save-status" id="save-status">✓ Progresso salvo</div><div class="keyboard-hint">SETAS para andar &nbsp; · &nbsp; E interagir &nbsp; · &nbsp; I mochila</div></main>`;
   pos = { x: state!.x, y: state!.y };
   game = startWorld(
     "world",
@@ -314,6 +315,9 @@ async function play() {
       context = label;
       document.getElementById("context")!.textContent = label;
     },
+    (item, target) => {
+      if (!busy) void perform({ kind: "pickup", item, target });
+    },
   );
   hud();
   joystick();
@@ -324,8 +328,7 @@ async function play() {
   on("pause", pause);
   on("interact", interact);
   on("tool", () => {
-    if (context === "Cultivar") cultivate();
-    else toast("Aproxime-se do roçado para plantar, regar e colher.");
+    journal();
   });
   recover().catch(() => status("⚠ Reconecte para recuperar a ação pendente."));
 }
@@ -509,6 +512,15 @@ function dialog(name: string, text: string) {
 }
 async function interact() {
   if (busy) return;
+  if (context === "Entregar carga") {
+    const d = state!.delivery;
+    if (d)
+      await perform(
+        { kind: "deliver" },
+        `Entrega feita! +${money(d.quantity * sell[d.item]!)}`,
+      );
+    return;
+  }
   if (context === "Entrar") {
     await perform({ kind: "enter" });
     return;
@@ -556,7 +568,7 @@ async function interact() {
           ? "Meu filho, quando os irmãos dividem o trabalho, o sítio rende mais. Um cuida das galinhas, outro do pomar. Os compradores ficam pertinho de cada atividade. Anote cada venda e reserve um pouco para o caixa da família, se puder."
           : state!.family[1].hunger < 35
             ? "A despensa anda vazia. Vamos comprar uma cesta na feira e dividir com a família?"
-            : "Bom ter vocês por perto! Se está começando, vá ao galinheiro: cuide das galinhas com uma porção de ração e recolha seis ovos. Dona Lúcia compra cada ovo por R$ 4. Seus irmãos aparecem pelo nome no sítio e no botão Família.",
+            : "Bom ter vocês por perto! Já deixamos os dez galinheiros, dez cajueiros e dez canteiros produzindo. Passe sobre ovos, cajus ou feijão para recolher. Você tem 90 segundos desde a primeira coleta: saia pela porteira ao sul e entregue ao comprador da estrada. Juntar mais não reinicia o relógio!",
       );
     return;
   }
@@ -783,7 +795,7 @@ function cultivate() {
 function journal() {
   modal(
     "Mapa e missões",
-    `<div class="mini-map"><span>↖ Casa e cisterna</span><span>↗ Cajueiral e feira</span><span>↙ Galinheiro e família</span><span>↘ Bancada e roçado</span></div><br><div class="eyebrow">CAPÍTULO 1 · CRIANDO RAÍZES</div>${missions.map(([id, label], i) => `<div class="mission ${state!.missions.includes(id) ? "done" : ""}"><i>${state!.missions.includes(id) ? "✓" : i + 1}</i>${label}</div>`).join("")}<button id="discoveries" class="primary full">Abrir Caderno de Descobertas</button>`,
+    `${farmMap()}<p class="note">Passe sobre a produção para coletar. Cada ponto repõe seus produtos em 2 minutos. Leve a carga em até 90 segundos pela porteira sul e toque em Entregar carga junto ao comprador. O prazo continua nos menus.</p><div class="mini-map"><span>↖ Casa e cisterna</span><span>↗ 10 cajueiros</span><span>↙ 10 galinheiros</span><span>↘ 10 canteiros de feijão</span></div><br><div class="eyebrow">CAPÍTULO 1 · CRIANDO RAÍZES</div>${missions.map(([id, label], i) => `<div class="mission ${state!.missions.includes(id) ? "done" : ""}"><i>${state!.missions.includes(id) ? "✓" : i + 1}</i>${label}</div>`).join("")}<button id="discoveries" class="primary full">Abrir Caderno de Descobertas</button>`,
     () => on("discoveries", discoveries),
   );
 }
@@ -796,9 +808,10 @@ function discoveries() {
 function pause() {
   modal(
     "Uma pausa à sombra",
-    `<p>O tempo e o personagem ficam parados enquanto você está neste menu.</p><div class="grid"><button id="resume" class="primary">Continuar</button><button id="pause-family">Família</button><button id="pause-settings">Configurações</button><button id="menu">Salvar e voltar ao menu</button></div>`,
+    `<p>O personagem fica parado neste menu. O prazo real da entrega continua correndo, inclusive ao sair do jogo.</p><div class="grid"><button id="resume" class="primary">Continuar</button><button id="pause-family">Família</button><button id="pause-settings">Configurações</button><button id="account-options">${account?.guest ? "Guardar minha partida" : "Minha conta"}</button><button id="menu">Salvar e voltar ao menu</button></div>`,
     () => {
       on("resume", closeModal);
+      on("account-options", accountOptions);
       on("pause-family", family);
       on("pause-settings", settings);
       on("menu", async () => {
@@ -821,18 +834,33 @@ function pause() {
   );
 }
 async function boot() {
+  game?.destroy(true);
+  game = undefined;
+  closeModal();
   app.innerHTML =
-    '<div class="loading"><img src="/icon.svg" width="70" style="margin:auto"><h2>Preparando a terra…</h2><progress aria-label="Carregando"></progress></div>';
+    '<div class="loading"><h2>Entrando no sítio…</h2><progress aria-label="Carregando o jogo"></progress></div>';
   if (new URLSearchParams(location.search).has("reset")) {
     auth("reset");
     return;
   }
   try {
-    account = await api("me");
+    try {
+      account = await api("me");
+    } catch (e: any) {
+      if (e.status !== 401) throw e;
+      account = await api("guest", {});
+    }
     state = await api("save");
-    profile();
-  } catch {
-    landing();
+    if (!state)
+      state = await api("new", {
+        name: account!.nickname,
+        skin: "terracota",
+        mode: "historia",
+      });
+    await play();
+  } catch (e: any) {
+    app.innerHTML = `<div class="loading"><h2>Não foi possível entrar no sítio</h2><p>${esc(e.message || "Verifique sua conexão.")}</p><button id="retry">Tentar novamente</button></div>`;
+    on("retry", () => void boot());
   }
 }
 boot();
@@ -939,4 +967,73 @@ function siblings() {
       });
     },
   );
+}
+
+function farmMap() {
+  const circles = Object.entries(sectors)
+    .map(([item, nodes]) =>
+      nodes
+        .map(
+          (p) =>
+            `<circle cx="${p.x}" cy="${p.y}" r="24" fill="${item === "ovo" ? "#faf0cb" : item === "caju" ? "#a95029" : "#687847"}"/>`,
+        )
+        .join(""),
+    )
+    .join("");
+  return `<svg class="farm-map" viewBox="0 0 ${WORLD.width} ${WORLD.height}" role="img" aria-label="Mapa do sítio: galinheiros à esquerda, cajueiros e feijão à direita, saída ao sul"><rect width="2560" height="1680" fill="#cfac72"/><path d="M1200 100V1570M60 1290H2500" stroke="#f3d89b" stroke-width="95"/><path d="M60 1370H1120M1280 1370H2500" stroke="#66472d" stroke-width="18"/>${circles}<g fill="#513b28" font-size="75" font-family="Georgia"><text x="120" y="220">Casa</text><text x="130" y="460">Galinheiros</text><text x="1450" y="160">Cajueiros</text><text x="1450" y="770">Feijão</text><text x="850" y="1660">Compradores · estrada</text></g><circle cx="${pos.x}" cy="${pos.y}" r="30" fill="#315d72" stroke="#fff7e2" stroke-width="12"/></svg>`;
+}
+setInterval(() => {
+  const el = document.getElementById("delivery");
+  if (!game || !state || !el) return;
+  const d = state.delivery;
+  if (!d) {
+    el.classList.remove("urgent");
+    el.innerHTML =
+      "<small>COLHEITA E ENTREGA</small><strong>Passe sobre os produtos para recolher</strong><span>Ovos ↙ · Caju ↗ · Feijão ↘</span>";
+    return;
+  }
+  const seconds = Math.max(0, Math.ceil((d.deadline - Date.now()) / 1000));
+  if (!seconds) {
+    el.innerHTML =
+      "<strong>Prazo encerrado</strong><span>Recolha uma nova carga. Seu dinheiro foi preservado.</span>";
+    if (!busy)
+      void perform(
+        { kind: "expire" },
+        "O prazo da carga acabou. Recolha uma nova produção.",
+      );
+    return;
+  }
+  const buyer = buyers[d.item],
+    distance = Math.round(Math.hypot(pos.x - buyer.x, pos.y - buyer.y) / 10);
+  const outside = pos.y > WORLD.fenceY;
+  const target = outside ? buyer : { x: WORLD.gateX, y: WORLD.fenceY + 70 };
+  const routeAngle =
+    (Math.atan2(target.y - pos.y, target.x - pos.x) * 180) / Math.PI;
+  el.classList.toggle("urgent", seconds <= 20);
+  el.innerHTML = `<small>ENTREGA · ${d.quantity} ${labels[d.item]}</small><div class="delivery-heading"><strong>${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}</strong><span class="route-arrow" style="transform:rotate(${routeAngle}deg)">➜</span><span>${outside ? buyer.name : "Porteira ao sul"}<small>${buyer.name} · ${distance} passos</small></span></div><progress max="${DELIVERY_MS}" value="${seconds * 1000}" aria-label="Tempo restante para entregar"></progress>`;
+}, 250);
+
+function accountOptions() {
+  modal(
+    account?.guest ? "Sua partida de visitante" : "Sua conta",
+    `<p>${account?.guest ? "Sua partida fica salva nesta sessão. Vincule a um e-mail para recuperar o acesso e jogar em outro aparelho." : `Jogando como ${esc(account?.nickname || "")}. Sua partida está salva na conta.`}</p><div class="actions">${account?.guest ? '<button id="claim-account" class="primary">Vincular esta partida</button><button id="existing-account">Já tenho conta</button>' : '<button id="account-profile">Gerenciar partida</button>'}</div>`,
+    () => {
+      on("claim-account", () => void leaveForAuth("register"));
+      on("existing-account", () => void leaveForAuth("login"));
+      on("account-profile", () => void profile());
+    },
+  );
+}
+async function leaveForAuth(kind: "register" | "login") {
+  if (busy) {
+    toast("Aguarde o salvamento.");
+    return;
+  }
+  if (dirty && !(await perform({ kind: "move", ...pos }))) return;
+  try {
+    await recover();
+    auth(kind);
+  } catch {
+    toast("Reconecte para salvar sua partida antes de continuar.");
+  }
 }

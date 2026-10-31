@@ -8,6 +8,12 @@ export type Item =
   | "ovo"
   | "racao";
 export type State = {
+  delivery: {
+    item: "caju" | "ovo" | "feijao";
+    quantity: number;
+    deadline: number;
+  } | null;
+  pickups: Record<string, number>;
   version: number;
   name: string;
   skin: string;
@@ -45,20 +51,38 @@ export const points = {
   cistern: { x: 414, y: 225 },
   family: { x: 290, y: 285 },
   teen: { x: 440, y: 345 },
-  market: { x: 1135, y: 280 },
+  market: { x: 1850, y: 1550 },
   bench: { x: 600, y: 380 },
-  coop: { x: 162, y: 535 },
-  eggBuyer: { x: 312, y: 510 },
-  fruitBuyer: { x: 1005, y: 370 },
-  cropBuyer: { x: 925, y: 610 },
-  plots: { x: 705, y: 575 },
-  trees: [
-    { x: 680, y: 220 },
-    { x: 840, y: 220 },
-    { x: 680, y: 370 },
-    { x: 840, y: 370 },
-  ],
+  coop: { x: 180, y: 620 },
+  eggBuyer: { x: 950, y: 1550 },
+  fruitBuyer: { x: 1250, y: 1550 },
+  cropBuyer: { x: 1550, y: 1550 },
+  plots: { x: 1400, y: 890 },
+  trees: Array.from({ length: 10 }, (_, i) => ({
+    x: 1400 + (i % 5) * 215,
+    y: 300 + Math.floor(i / 5) * 260,
+  })),
 };
+export const WORLD = { width: 2560, height: 1680, fenceY: 1370, gateX: 1200 };
+export type Produce = "caju" | "ovo" | "feijao";
+export const sectors = {
+  caju: points.trees.map((p) => ({ x: p.x, y: p.y + 45 })),
+  ovo: Array.from({ length: 10 }, (_, i) => ({
+    x: 180 + (i % 5) * 210,
+    y: 620 + Math.floor(i / 5) * 340,
+  })),
+  feijao: Array.from({ length: 10 }, (_, i) => ({
+    x: 1400 + (i % 5) * 215,
+    y: 890 + Math.floor(i / 5) * 250,
+  })),
+};
+export const buyers = {
+  ovo: { ...points.eggBuyer, name: "Dona Lúcia" },
+  caju: { ...points.fruitBuyer, name: "Bento" },
+  feijao: { ...points.cropBuyer, name: "Ana" },
+};
+export const DELIVERY_MS = 90_000;
+export const REGROW_MS = 120_000;
 export const labels: Record<Item, string> = {
   caju: "Caju",
   castanha: "Castanha in natura",
@@ -88,6 +112,8 @@ export function initial(
 ): State {
   return {
     version: 0,
+    delivery: null,
+    pickups: {},
     name,
     skin,
     mode,
@@ -109,8 +135,8 @@ export function initial(
       alimento: 2,
       muda: 0,
     },
-    trees: [0, 0, 0, 0],
-    plots: Array.from({ length: 4 }, () => ({ planted: 0, watered: false })),
+    trees: Array(10).fill(0),
+    plots: Array.from({ length: 10 }, () => ({ planted: -2, watered: true })),
     family: [name, "Mãe Rosa", "Pai João"].map((name) => ({
       name,
       hunger: 85,
@@ -144,12 +170,17 @@ export function restore(saved: State): State {
   s.inventory.racao ??= 2;
   s.coopDay ??= 0;
   s.contributed ??= 0;
+  s.delivery ??= null;
+  s.pickups ??= {};
+  while (s.trees.length < 10) s.trees.push(0);
+  while (s.plots.length < 10) s.plots.push({ planted: -2, watered: true });
   if (s.family[1]) s.family[1].name = "Mãe Rosa";
   if (s.family[2]) s.family[2].name = "Pai João";
   return s;
 }
-export function act(s: State, a: Action): State {
+export function act(s: State, a: Action, now = Date.now()): State {
   s = restore(s);
+  if (s.delivery && s.delivery.deadline <= now) s.delivery = null;
   const done = (id: string) => {
     if (!s.missions.includes(id)) s.missions.push(id);
   };
@@ -161,11 +192,55 @@ export function act(s: State, a: Action): State {
     if (s.energy < n) throw Error("Descanse em casa para recuperar energia.");
     s.energy -= n;
   };
-  if (a.kind === "move") {
+  if (a.kind === "pickup") {
+    if (!a.item || !(a.item in sectors)) throw Error("Produto inválido.");
+    const item = a.item as Produce,
+      i = a.target ?? -1,
+      p = sectors[item][i];
+    if (!p) throw Error("Ponto de coleta inválido.");
+    near(p, 42);
+    const key = `${item}:${i}`;
+    if ((s.pickups[key] || 0) > now) throw Error("Aguarde a próxima produção.");
+    if (s.delivery && s.delivery.item !== item)
+      throw Error("Entregue a carga atual antes de pegar outro produto.");
+    if (s.delivery && s.delivery.quantity >= 30)
+      throw Error("Carga cheia. Vá ao comprador.");
+    s.delivery = {
+      item,
+      quantity: (s.delivery?.quantity || 0) + 3,
+      deadline: s.delivery?.deadline ?? now + DELIVERY_MS,
+    };
+    s.pickups[key] = now + REGROW_MS;
+    if (
+      ["ovo", "caju", "feijao"].every((item) =>
+        Object.keys(s.pickups).some((k) => k.startsWith(item + ":")),
+      )
+    )
+      done("tressetores");
+    done("colher");
+  } else if (a.kind === "deliver") {
+    if (!s.delivery)
+      throw Error("Não há carga dentro do prazo. Recolha uma nova produção.");
+    const d = s.delivery;
+    near(buyers[d.item], 85);
+    const amount = d.quantity * sell[d.item]!;
+    s.money += amount;
+    s.transactions.push({
+      day: s.day,
+      description: `Entrega no prazo: ${d.quantity} ${labels[d.item]}`,
+      amount,
+    });
+    s.delivery = null;
+    done("entrega");
+    done("feira");
+    done("vender");
+  } else if (a.kind === "expire") {
+    // Server time controls expiry, including while the browser is closed.
+  } else if (a.kind === "move") {
     if (!Number.isFinite(a.x) || !Number.isFinite(a.y))
       throw Error("Posição inválida.");
-    s.x = Math.max(40, Math.min(1240, a.x!));
-    s.y = Math.max(70, Math.min(740, a.y!));
+    s.x = Math.max(40, Math.min(WORLD.width - 40, a.x!));
+    s.y = Math.max(70, Math.min(WORLD.height - 40, a.y!));
     done("explorar");
   } else if (a.kind === "enter") {
     near(points.home);
@@ -338,7 +413,7 @@ export function act(s: State, a: Action): State {
       if (f.health === 0) f.alive = false;
     });
   } else throw Error("Ação desconhecida.");
-  if (!["move", "sleep"].includes(a.kind))
+  if (!["move", "sleep", "pickup", "deliver", "expire"].includes(a.kind))
     s.minute = Math.min(1320, (s.minute || 420) + 30);
   s.version++;
   s.transactions = s.transactions.slice(-100);

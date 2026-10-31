@@ -19,15 +19,15 @@ O terminal do Vite mostra também o endereço de rede. Para testar em um celular
 
 ## Como jogar
 
-- Crie uma conta ou entre, escolha nome, camisa e modo de jogo.
-- Mova o joystick no canto inferior esquerdo. No computador, também há setas, E (interagir) e I (mochila).
-- Fale com Mãe Rosa e Pai João perto da casa. Siga à direita para o cajueiral.
-- Aproxime-se de uma árvore e toque em **Colher**. Na bancada abaixo do pomar, **Separar** transforma unidades de colheita em castanha in natura.
-- A feira fica à direita. Escolha produto, quantidade e confirme a compra ou venda. O chapéu comprado aparece no personagem.
-- No roçado, abaixo da bancada, plante sementes, regue e colha após três dias. Uma muda de cajueiro pode ser plantada, mas não produz neste capítulo.
-- A mochila permite dividir uma cesta e 9 L de água com a família. A cisterna oferece entrega de água com dinheiro do jogo.
-- Entre em casa pela frente e descanse para avançar o dia. Para sair, aproxime-se da abertura inferior. A cada quatro dias ocorre chuva simplificada.
-- Abra mapa/missões, caderno de descobertas ou pausa pelos botões. **Salvar e voltar ao menu** espera o salvamento antes de sair.
+- A página abre diretamente no jogo. Uma primeira visita cria uma partida de visitante salva no servidor e vinculada ao cookie desta sessão.
+- Em **Pausar → Guardar minha partida**, vincule e-mail e senha para continuar em outro aparelho, ou entre em uma conta existente. Sem vincular, perder o cookie ou deixar a sessão expirar impede recuperar o visitante.
+- Use joystick ou setas. O mapa tem 10 galinheiros à esquerda, 10 cajueiros no alto à direita e 10 canteiros de feijão já plantados embaixo à direita.
+- Passe sobre os produtos para recolher 3 unidades. A primeira coleta inicia 90 segundos de prazo real; outras coletas do mesmo produto aumentam a carga até 30, sem renovar o prazo.
+- Siga a seta até a porteira sul e depois até o comprador na estrada. Toque **Entregar carga** junto a ele. Ovos: R$ 4; caju: R$ 3; feijão: R$ 8 por unidade.
+- Cada ponto volta a produzir em 2 minutos. O prazo continua em menus, com a aba fechada e após reconectar; se vencer, a carga é perdida sem multa sobre o saldo.
+- **Rotas** mostra o mapa. **Família online** mostra irmãos reais, atividade escolhida e caixa compartilhado. Produção, cargas e saldo são individuais.
+- Mãe Rosa e Pai João ficam perto da casa. A cisterna fornece água; a mochila permite alimentar a família. Entre em casa e descanse para avançar o calendário e recuperar energia.
+- O armazém e os compradores ficam fora do sítio. Produtos antigos na mochila ainda podem ser vendidos; cargas com prazo têm pagamento exclusivo pela entrega.
 
 ## Persistência e segurança
 
@@ -91,7 +91,7 @@ O cenário, o protagonista e os seis NPCs retrô modernos foram gerados original
 
 Referências científicas: [Embrapa — O cajueiro](https://www.atermaisdigital.cnptia.embrapa.br/web/caju/o-cajueiro), [Embrapa — Caju: 500 perguntas e respostas](https://www.infoteca.cnptia.embrapa.br/infoteca/bitstream/doc/1015476/2/500-perguntas-caju.pdf), [IBGE — Pacajus](https://www.ibge.gov.br/cidades-e-estados/ce/pacajus.html).
 
-## Versão 0.2 — família online e retrô moderno
+## Histórico: versão 0.2 — família online e retrô moderno
 
 - Novo cenário detalhado, protagonista com quatro direções e animação, Mãe Rosa, Pai João e quatro comerciantes com aparências próprias.
 - O botão **Família online** mostra os jogadores reais conectados como irmãos, seus nomes e atividades. Escolha galinheiro, pomar, horta ou água. Não há jogadores falsos: com apenas uma conta, o painel mostra uma pessoa.
@@ -119,3 +119,13 @@ O cenário final mantém a identidade retrô moderna com solo arenoso, capim sec
 
 ![Cenário semiárido do Vale do Caju](artifacts/vale-do-caju-semiarido.png)
 
+
+## Versão 0.3 — setores, entregas e abertura direta
+
+Implementa os 30 pontos de produção, compradores fora da propriedade, coleta por proximidade, prazo de entrega persistido e validado pelo servidor, indicação da rota e entrada sem tela de apresentação. Controles de madeira e ícones originais integram a interface ao cenário.
+
+Validação local: build TypeScript/Vite e 15 testes aprovados, incluindo relógio de entrega, reposição, bloqueio de carga mista, duplicação de pagamento, mapa ampliado, visitante e vinculação de conta preservando progresso. Inspeção no navegador confirmou abertura direta de conta existente e visitante, duas presenças e controles em paisagem. Não há validação de carga nem em aparelhos físicos.
+
+### Hospedagem
+
+O GitHub mantém o código. GitHub Pages sozinho não executa Fastify/PostgreSQL, portanto não atende ao jogo completo. `server.ts` e `vercel.json` preparam a implantação Fastify na Vercel; a implantação remota ainda precisa ser executada e validada. Configure PostgreSQL persistente por `DATABASE_URL`, `NODE_ENV=production` e `APP_ORIGIN` com a origem HTTPS final. A conta demo e o banco local não devem ser copiados para produção. Não foi publicado um endereço público nesta revisão.

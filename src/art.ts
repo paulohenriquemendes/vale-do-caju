@@ -1,5 +1,8 @@
+import { paintExpandedFarm } from "./expanded-farm";
+import { WORLD } from "../shared/game";
 export const artSources: {
   farm?: HTMLImageElement;
+  ground?: HTMLImageElement;
   hero?: HTMLImageElement;
   npcs?: HTMLImageElement;
 } = {};
@@ -10,6 +13,7 @@ export function loadArtwork(progress: (value: number) => void = () => {}) {
       (
         Object.entries({
           farm: "/assets/farm-retro.png",
+          ground: "/assets/ground-expanded.png",
           hero: "/assets/farmer-retro.png",
           npcs: "/assets/family-retro.png",
         }) as [keyof typeof artSources, string][]
@@ -19,7 +23,7 @@ export function loadArtwork(progress: (value: number) => void = () => {}) {
             const img = new Image();
             img.onload = () => {
               artSources[key] = img;
-              progress(Object.keys(artSources).length / 3);
+              progress(Object.keys(artSources).length / 4);
               resolve();
             };
             img.onerror = () =>
@@ -343,9 +347,8 @@ export function paintLandscape(
   treasury = 0,
 ) {
   const c = canvas.getContext("2d")!;
-  canvas.width = 2560;
-  canvas.height = 1600;
-  c.scale(2, 2);
+  canvas.width = WORLD.width;
+  canvas.height = WORLD.height;
   if (s.location === "home") {
     box(c, 0, 0, 1280, 800, "#233b36");
     box(c, 410, 210, 460, 370, "#b18b63", 12);
@@ -387,7 +390,7 @@ export function paintLandscape(
     return;
   }
   if (artSources.farm) {
-    paintRetroFarm(c, s, treasury);
+    paintExpandedFarm(c, artSources.farm, artSources.ground!, treasury);
     return;
   }
   let seed = 2701;

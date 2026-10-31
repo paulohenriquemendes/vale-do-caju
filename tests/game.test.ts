@@ -36,8 +36,9 @@ test("proximity, energy and inventory reject impossible actions without mutating
 });
 test("crops need watering and elapsed days; rain replenishes water", () => {
   let s = initial();
-  s.x = 650;
-  s.y = 570;
+  s.x = points.plots.x;
+  s.y = points.plots.y;
+  s.plots[0] = { planted: 0, watered: false };
   s = act(s, { kind: "plant", target: 0 });
   assert.throws(() => act(s, { kind: "crop", target: 0 }));
   s = act(s, { kind: "water" });

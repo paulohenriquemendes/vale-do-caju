@@ -1,3 +1,4 @@
+import { points } from "../shared/game";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -49,7 +50,7 @@ test("API: accounts, private saves, duplicate commands, conflicts, CSRF and logo
   const cmd = {
     id: randomUUID(),
     version: s.version,
-    action: { kind: "move", x: 700, y: 220 },
+    action: { kind: "move", ...points.trees[0] },
   };
   const moved = await call("action", cmd);
   assert.equal(moved.status, 200);
