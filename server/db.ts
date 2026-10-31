@@ -12,7 +12,13 @@ const dataDir =
     : ".data/postgres");
 if (!process.env.DATABASE_URL) mkdirSync(dirname(dataDir), { recursive: true });
 const db = process.env.DATABASE_URL
-  ? new pg.Pool({ connectionString: process.env.DATABASE_URL })
+  ? new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 3,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true } : undefined,
+    })
   : new PGlite(dataDir);
 export async function query<T = any>(
   sql: string,

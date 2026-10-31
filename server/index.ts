@@ -22,7 +22,7 @@ const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 export const app = Fastify({ logger: true, bodyLimit: 16384 });
 await app.register(cookie);
 await app.register(rateLimit, { max: 200, timeWindow: "1 minute" });
-await migrate();
+if (!prod) await migrate();
 app.addHook("onRequest", async (req, reply) => {
   reply
     .header("X-Content-Type-Options", "nosniff")
