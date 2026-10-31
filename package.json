@@ -1,0 +1,41 @@
+{
+  "name": "vale-do-caju",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"tsx server/index.ts\" \"vite --host 0.0.0.0\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "tsx server/index.ts",
+    "seed": "tsx server/seed.ts",
+    "test": "node scripts/test.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/static": "^10.1.8",
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/outfit": "^5.3.0",
+    "argon2": "^0.44.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.6.1",
+    "pg": "^8.16.3",
+    "phaser": "^3.90.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/pg": "^8.15.6",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.9.10",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  },
+  "overrides": {
+    "@fastify/static": {
+      "glob": "^14.0.3"
+    }
+  }
+}
