@@ -416,7 +416,7 @@ if (existsSync("dist")) {
     etag: false,
     lastModified: false,
     setHeaders(res, path) {
-      if (path.endsWith("index.html")) res.setHeader("Cache-Control", "no-store");
+      if (path.endsWith("index.html")) res.header("Cache-Control", "no-store");
     },
   });
   app.setNotFoundHandler((req, reply) =>
