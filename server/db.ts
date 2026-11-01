@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL)
   throw Error("DATABASE_URL é obrigatória em produção.");
@@ -17,7 +17,7 @@ const db = process.env.DATABASE_URL
       max: 3,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 10000,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true } : undefined,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true, ca: readFileSync(new URL("./certs/supabase-ca.crt", import.meta.url), "utf8") } : undefined,
     })
   : new PGlite(dataDir);
 export async function query<T = any>(
