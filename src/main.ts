@@ -290,6 +290,7 @@ async function play() {
   app.innerHTML =
     '<div class="loading"><img src="/icon.svg" width="64" style="margin:auto"><h2>Entrando no Vale…</h2><progress id="art-progress" max="1" value="0" aria-label="Carregando cenário e personagens"></progress></div>';
   try {
+    await document.fonts.ready;
     await loadArtwork((p) => {
       const bar = document.getElementById(
         "art-progress",

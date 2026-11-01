@@ -21,9 +21,11 @@ export function paintExpandedFarm(
     dh = h,
   ) {
     const tile = document.createElement("canvas");
-    tile.width = dw;
-    tile.height = dh;
+    tile.width = Math.ceil(dw * 1.5);
+    tile.height = Math.ceil(dh * 1.5);
     const t = tile.getContext("2d")!;
+    t.scale(1.5, 1.5);
+    t.imageSmoothingQuality = "high";
     t.drawImage(image, x * sx, y * sy, w * sx, h * sy, 0, 0, dw, dh);
     t.globalCompositeOperation = "destination-in";
     const gx = t.createLinearGradient(0, 0, dw, 0);
@@ -40,7 +42,7 @@ export function paintExpandedFarm(
     gy.addColorStop(1, "transparent");
     t.fillStyle = gy;
     t.fillRect(0, 0, dw, dh);
-    c.drawImage(tile, dx, dy);
+    c.drawImage(tile, dx, dy, dw, dh);
   }
   // House and cistern retain their original door positions for existing saves.
   patch(65, 55, 415, 230, 65, 55);

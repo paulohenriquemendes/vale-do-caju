@@ -18,6 +18,7 @@ import {
   type Produce,
   type State,
 } from "../shared/game";
+const renderDensity = Math.min(2, Math.max(1.5, window.devicePixelRatio || 1));
 export let scene: World | undefined;
 export const stick = { x: 0, y: 0 };
 export let paused = false;
@@ -75,9 +76,11 @@ export class World extends Phaser.Scene {
     const name = this.add
       .text(0, -68, this.state.name + " · você", {
         fontFamily: "DM Sans",
-        fontSize: "11px",
+        fontSize: "13px",
+        fontStyle: "bold",
+        resolution: 3,
         color: "#ffffff",
-        backgroundColor: "#365f4ed9",
+        backgroundColor: "#365f4ef5",
         padding: { x: 7, y: 4 },
       })
       .setOrigin(0.5);
@@ -103,9 +106,9 @@ export class World extends Phaser.Scene {
     });
   }
   resize() {
-    const w = this.scale.width,
-      h = this.scale.height;
-    this.cameras.main.setZoom(w < 600 ? 1.05 : h < 500 ? 1.1 : 1.35);
+    const w = this.scale.width / renderDensity,
+      h = this.scale.height / renderDensity;
+    this.cameras.main.setZoom(renderDensity * (w < 600 ? 1.05 : h < 500 ? 1.1 : 1.35));
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
   }
   avatarTexture(skin: string, dir: number, frame: number, hat: boolean) {
@@ -133,8 +136,8 @@ export class World extends Phaser.Scene {
     if (this.textures.exists("landscape")) this.textures.remove("landscape");
     const texture = this.textures.createCanvas(
       "landscape",
-      WORLD.width,
-      WORLD.height,
+      WORLD.width * 1.5,
+      WORLD.height * 1.5,
     )!;
     paintLandscape(texture.canvas, this.state, this.treasury);
     texture.refresh();
@@ -222,7 +225,9 @@ export class World extends Phaser.Scene {
       this.add
         .text(x, y - 65, name, {
           fontFamily: "DM Sans",
-          fontSize: "11px",
+          fontSize: "13px",
+        fontStyle: "bold",
+        resolution: 3,
           color: "#344d3c",
           backgroundColor: "#fff9eaeF",
           padding: { x: 7, y: 4 },
@@ -265,7 +270,9 @@ export class World extends Phaser.Scene {
         const label = this.add
           .text(0, -70, "", {
             fontFamily: "DM Sans",
-            fontSize: "11px",
+            fontSize: "13px",
+        fontStyle: "bold",
+        resolution: 3,
             color: "#fffaf0",
             backgroundColor: "#517a65",
             align: "center",
@@ -411,7 +418,9 @@ export class World extends Phaser.Scene {
           label = this.pickupLabels[idx] = this.add
             .text(p.x, p.y + 26, "", {
               fontFamily: "Georgia",
-              fontSize: "11px",
+              fontSize: "13px",
+        fontStyle: "bold",
+        resolution: 3,
               color: "#fff0c5",
               backgroundColor: "#60462de0",
               padding: { x: 5, y: 3 },
@@ -494,19 +503,27 @@ export function startWorld(
   world.onPosition = onPosition;
   world.onContext = onContext;
   world.onPickup = onPickup;
-  return new Phaser.Game({
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
     backgroundColor: "#8eab62",
     pixelArt: false,
     roundPixels: false,
     scale: {
-      mode: Phaser.Scale.RESIZE,
-      width: window.innerWidth,
-      height: window.innerHeight,
+      mode: Phaser.Scale.NONE,
+      width: Math.round(window.innerWidth * renderDensity),
+      height: Math.round(window.innerHeight * renderDensity),
+      zoom: 1 / renderDensity,
     },
     scene: world,
     audio: { noAudio: true },
     render: { antialias: true, powerPreference: "low-power" },
   });
+  const fitViewport = () => game.scale.resize(
+    Math.round(window.innerWidth * renderDensity),
+    Math.round(window.innerHeight * renderDensity),
+  );
+  window.addEventListener("resize", fitViewport);
+  game.events.once(Phaser.Core.Events.DESTROY, () => window.removeEventListener("resize", fitViewport));
+  return game;
 }

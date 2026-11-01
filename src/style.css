@@ -1546,3 +1546,15 @@ button.ghost {
     width: 215px;
   }
 }
+
+/* Keep small game labels readable at native browser resolution. */
+.hud-card .eyebrow { font-size: 10px; letter-spacing: .6px; color: #f7e8c4; }
+.hud-card strong, .siblings-btn, .control-label { font-size: 13px; }
+.game-shell button { text-shadow: none; }
+.save-status, .rotate, .delivery-panel span { font-size: 12px; }
+.quest-pin, .delivery-panel { line-height: 1.45; }
+@media (max-width: 560px) {
+  .hud-card .eyebrow { font-size: 10px; }
+  .hud-card strong { font-size: 12px; }
+  .siblings-btn { font-size: 12px; }
+}

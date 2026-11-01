@@ -347,8 +347,11 @@ export function paintLandscape(
   treasury = 0,
 ) {
   const c = canvas.getContext("2d")!;
-  canvas.width = WORLD.width;
-  canvas.height = WORLD.height;
+  canvas.width = WORLD.width * 1.5;
+  canvas.height = WORLD.height * 1.5;
+  c.scale(1.5, 1.5);
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = "high";
   if (s.location === "home") {
     box(c, 0, 0, 1280, 800, "#233b36");
     box(c, 410, 210, 460, 370, "#b18b63", 12);
@@ -882,7 +885,8 @@ function paintRetroAvatar(
     h = img.naturalHeight;
   const centers = [0.167, 0.39, 0.613, 0.837],
     tops = [0.01, 0.25, 0.49, 0.735];
-  c.imageSmoothingEnabled = false;
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = "high";
   c.drawImage(
     img,
     (centers[frame] - 0.085) * w,
