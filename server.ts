@@ -416,7 +416,10 @@ if (existsSync("dist")) {
       : reply.sendFile("index.html"),
   );
 }
-await app.listen({ port: Number(process.env.PORT || 3001), host: "0.0.0.0" });
+void app.listen({ port: Number(process.env.PORT || 3001), host: "0.0.0.0" }).catch((error) => {
+  app.log.error(error);
+  process.exit(1);
+});
 
 let stopping = false;
 async function stop() {
