@@ -1,5 +1,6 @@
 import "dotenv/config";
 import Fastify from "fastify";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import serve from "@fastify/static";
@@ -416,7 +417,7 @@ if (existsSync("dist")) {
       : reply.sendFile("index.html"),
   );
 }
-void app.listen({ port: Number(process.env.PORT || 3001), host: "0.0.0.0" }).catch((error) => {
+if (!process.env.VERCEL) void app.listen({ port: Number(process.env.PORT || 3001), host: "0.0.0.0" }).catch((error) => {
   app.log.error(error);
   process.exit(1);
 });
@@ -431,3 +432,9 @@ async function stop() {
 }
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
+
+// Explicit Node handler for the Vercel function runtime.
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  await app.ready();
+  app.server.emit("request", req, res);
+}
