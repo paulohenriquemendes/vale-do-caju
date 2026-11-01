@@ -8,8 +8,8 @@ import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { z } from "zod";
-import { query, migrate, close } from "./server/db";
-import { initial, act, restore, WORLD, type State } from "./shared/game";
+import { query, migrate, close } from "./server/db.js";
+import { initial, act, restore, WORLD, type State } from "./shared/game.js";
 const prod = process.env.NODE_ENV === "production",
   origin =
     process.env.APP_ORIGIN ||
