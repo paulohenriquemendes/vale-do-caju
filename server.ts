@@ -410,7 +410,15 @@ app.post("/api/family/leave", async (req) => {
   return { ok: true };
 });
 if (existsSync("dist")) {
-  await app.register(serve, { root: resolve("dist") });
+  await app.register(serve, {
+    root: resolve("dist"),
+    // Vercel normalizes file timestamps: size+mtime ETags can collide across builds.
+    etag: false,
+    lastModified: false,
+    setHeaders(res, path) {
+      if (path.endsWith("index.html")) res.setHeader("Cache-Control", "no-store");
+    },
+  });
   app.setNotFoundHandler((req, reply) =>
     req.url.startsWith("/api")
       ? reply.code(404).send({ error: "Rota inexistente" })
