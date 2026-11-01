@@ -75,7 +75,7 @@ export class World extends Phaser.Scene {
       .setDepth(2000);
     const name = this.add
       .text(0, -68, this.state.name + " · você", {
-        fontFamily: "DM Sans",
+        fontFamily: "\"DM Sans\", sans-serif",
         fontSize: "13px",
         fontStyle: "bold",
         resolution: 3,
@@ -224,7 +224,7 @@ export class World extends Phaser.Scene {
     this.map.add(
       this.add
         .text(x, y - 65, name, {
-          fontFamily: "DM Sans",
+          fontFamily: "\"DM Sans\", sans-serif",
           fontSize: "13px",
         fontStyle: "bold",
         resolution: 3,
@@ -269,7 +269,7 @@ export class World extends Phaser.Scene {
           .setOrigin(0.5, 0.8375);
         const label = this.add
           .text(0, -70, "", {
-            fontFamily: "DM Sans",
+            fontFamily: "\"DM Sans\", sans-serif",
             fontSize: "13px",
         fontStyle: "bold",
         resolution: 3,
