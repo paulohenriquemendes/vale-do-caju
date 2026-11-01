@@ -1,5 +1,8 @@
 # VALE DO CAJU FARM
 
+**Jogar:** https://vale-do-caju.vercel.app/  
+**GitHub Pages:** https://paulohenriquemendes.github.io/vale-do-caju/ (abre o jogo na Vercel)
+
 Jogo web mobile-first sobre agricultura familiar em uma comunidade fictícia de Pacajus, Ceará. Primeiro capítulo jogável em 2027; não é a campanha completa até 2050.
 
 ## Executar
@@ -138,3 +141,11 @@ O GitHub mantém o código. GitHub Pages sozinho não executa Fastify/PostgreSQL
 O GitHub Pages publica `pages/index.html`, que abre o jogo na Vercel. O redirecionamento mantém o jogo e a API na mesma origem, permitindo cookies seguros e partidas persistentes. O Pages não executa o servidor Node.js.
 
 Em produção, o esquema deve ser aplicado antes de iniciar o servidor; a aplicação não cria tabelas no boot. No Supabase, use Transaction pooler com o usuário `vale_game.<project-ref>` e a senha privada do papel `vale_game`. Configure `PGPASSWORD` como segredo na Vercel. Não use a chave publicável como senha de banco.
+
+### Validação da publicação — 31/10/2026
+
+Produção Vercel verificada no commit `4095b02`, com PostgreSQL no Supabase em São Paulo. Build e 15 testes passaram. O teste `SMOKE_URL=https://vale-do-caju.vercel.app npx tsx scripts/smoke-hosted.ts` confirmou página, JavaScript, quatro texturas, visitantes, colheita, entrega, pagamento sem duplicação, persistência, isolamento entre contas, dois irmãos online e logout. As duas contas temporárias desse teste foram removidas.
+
+A conferência no navegador verificou abertura direta, diálogo com Mãe Rosa, progresso salvo e controles em tela vertical e horizontal de 844 × 390. Isso não substitui teste de carga ou teste em celular físico.
+
+O certificado público em `server/certs/supabase-ca.crt` vem do endereço oficial usado pelo painel Supabase: `https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt`. A conexão valida certificado e nome do servidor. `scripts/prepare-static.mjs` adapta apenas o carregamento ESM de content-disposition para o runtime Vercel, mantendo @fastify/static 10.1.8 com suas correções de segurança.
