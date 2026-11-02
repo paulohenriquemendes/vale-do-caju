@@ -22,7 +22,22 @@ if (prod && !origin.startsWith("https://"))
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 export const app = Fastify({ logger: true, bodyLimit: 16384 });
 await app.register(cookie);
-await app.register(rateLimit, { max: 200, timeWindow: "1 minute" });
+await app.register(rateLimit, {
+  max: 200,
+  timeWindow: "1 minute",
+  keyGenerator: (req) =>
+    req.url.startsWith("/api/") &&
+    ![
+      "/api/guest",
+      "/api/register",
+      "/api/login",
+      "/api/forgot",
+      "/api/reset",
+      "/api/claim",
+    ].includes(req.url.split("?")[0])
+      ? digest(req.cookies.session || req.ip)
+      : req.ip,
+});
 if (!prod) await migrate();
 app.addHook("onRequest", async (req, reply) => {
   reply
@@ -111,7 +126,7 @@ app.post(
         `${id}@guest.valedocaju.invalid`,
         nickname,
         password,
-        JSON.stringify(initial(nickname)),
+        JSON.stringify(initial(nickname, "terracota", "historia", id)),
       ],
     );
     await session(reply, id);
@@ -285,7 +300,7 @@ app.post("/api/new", async (req) => {
     })
     .parse(req.body);
   return locked(u.id, async () => {
-    const s = initial(b.name, b.skin, b.mode);
+    const s = initial(b.name, b.skin, b.mode, u.id);
     await query(
       "INSERT INTO saves VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET state=EXCLUDED.state",
       [u.id, JSON.stringify(s)],
@@ -299,6 +314,10 @@ const command = z.object({
   version: z.number().int().nonnegative(),
   action: z.object({
     kind: z.string().max(20),
+    name: z.string().trim().min(2).max(30).optional(),
+    activity: z.enum(["prepare", "plant", "water", "feed", "clean"]).optional(),
+    cosmetic: z.string().max(40).optional(),
+    tone: z.string().max(7).optional(),
     target: z.number().int().optional(),
     item: z
       .enum([
@@ -394,7 +413,7 @@ app.post(
     );
     const members = (
       await query(
-        `SELECT p.user_id AS id,p.x,p.y,p.location,p.role,s.state->>'name' AS name,s.state->>'skin' AS skin,(s.state->>'hat')::boolean AS hat FROM presence p JOIN saves s ON s.user_id=p.user_id WHERE p.seen>$1 ORDER BY p.user_id LIMIT 100`,
+        `SELECT p.user_id AS id,p.x,p.y,p.location,p.role,s.state->>'name' AS name,s.state->>'skin' AS skin,s.state->'appearance' AS appearance,(s.state->>'hat')::boolean AS hat FROM presence p JOIN saves s ON s.user_id=p.user_id WHERE p.seen>$1 ORDER BY p.user_id LIMIT 100`,
         [Date.now() - 12000],
       )
     ).rows;
@@ -425,10 +444,13 @@ if (existsSync("dist")) {
       : reply.sendFile("index.html"),
   );
 }
-if (!process.env.VERCEL) void app.listen({ port: Number(process.env.PORT || 3001), host: "0.0.0.0" }).catch((error) => {
-  app.log.error(error);
-  process.exit(1);
-});
+if (!process.env.VERCEL)
+  void app
+    .listen({ port: Number(process.env.PORT || 3001), host: "0.0.0.0" })
+    .catch((error) => {
+      app.log.error(error);
+      process.exit(1);
+    });
 
 let stopping = false;
 async function stop() {
@@ -442,7 +464,10 @@ process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
 
 // Explicit Node handler for the Vercel function runtime.
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+) {
   await app.ready();
   app.server.emit("request", req, res);
 }

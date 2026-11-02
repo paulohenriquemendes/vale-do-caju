@@ -1,36 +1,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { initial, act, points } from "../shared/game";
+import { initial, act, points, sectors, buyers } from "../shared/game";
 
-test("poultry produces six eggs once per day and nearby buyer pays in reais", () => {
-  let s = initial("Irmã");
-  s.x = points.coop.x;
-  s.y = points.coop.y;
-  s = act(s, { kind: "poultry" });
-  assert.equal(s.inventory.ovo, 6);
-  assert.equal(s.inventory.racao, 1);
-  assert.equal(s.energy, 92);
-  assert.throws(() => act(s, { kind: "poultry" }), /já cuidou/);
-  s = act(s, { kind: "move", ...points.eggBuyer });
-  s = act(s, { kind: "trade", item: "ovo", quantity: 6, target: 0 });
-  assert.equal(s.money, 104);
-  assert.equal(s.inventory.ovo, 0);
-  assert.equal(s.transactions.at(-1)?.amount, 24);
-  s = act(s, { kind: "trade", item: "racao", quantity: 1, target: 1 });
-  assert.equal(s.money, 98);
-  s.x = 900;
-  s.y = 200;
-  assert.throws(
-    () => act(s, { kind: "trade", item: "racao", quantity: 1, target: 1 }),
-    /Aproxime/,
+test("poultry needs feed, water and cleaning after collection and pays realistic egg units", () => {
+  let s = initial();
+  Object.assign(s, sectors.ovo[0]);
+  s = act(s, { kind: "pickup", item: "ovo", target: 0 }, 1000);
+  Object.assign(s, buyers.ovo);
+  s = act(s, { kind: "deliver" }, 2000);
+  assert.equal(s.money, 82.1);
+  Object.assign(s, sectors.ovo[0]);
+  assert.throws(() =>
+    act(s, { kind: "pickup", item: "ovo", target: 0 }, 200000),
   );
-  s.location = "home";
-  s = act(s, { kind: "sleep" });
-  s.location = "farm";
-  s.x = points.coop.x;
-  s.y = points.coop.y;
-  assert.equal(act(s, { kind: "poultry" }).inventory.ovo, 6);
+  for (const activity of ["feed", "water", "clean"])
+    s = act(s, { kind: "tend", item: "ovo", target: 0, activity }, 3000);
+  assert.equal(s.inventory.racao, 1);
+  assert.equal(s.water, 59);
+  assert.throws(() =>
+    act(s, { kind: "pickup", item: "ovo", target: 0 }, 62999),
+  );
+  s = act(s, { kind: "pickup", item: "ovo", target: 0 }, 63000);
+  assert.equal(s.delivery?.quantity, 3);
 });
 test("contributions cannot exceed balance or be negative; old saves gain new fields", () => {
   const old = initial();

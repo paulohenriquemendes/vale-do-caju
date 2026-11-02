@@ -50,7 +50,7 @@ test("passing a drop starts a persistent clock; more pickups never extend it and
   assert.throws(() => act(s, { kind: "deliver" }, now + 11_000), /Aproxime/);
   Object.assign(s, buyers.caju);
   s = act(s, { kind: "deliver" }, now + 12_000);
-  assert.equal(s.money, 98);
+  assert.equal(s.money, 83);
   assert.equal(s.delivery, null);
   assert.throws(() => act(s, { kind: "deliver" }, now + 13_000));
 });
@@ -67,8 +67,18 @@ test("expiry is server-authoritative, does not fine the player, and regrowth fol
   assert.throws(() =>
     act(s, { kind: "pickup", item: "feijao", target: 0 }, 1000 + REGROW_MS - 1),
   );
-  s = act(s, { kind: "pickup", item: "feijao", target: 0 }, 1000 + REGROW_MS);
-  assert.equal(s.delivery?.quantity, 3);
+  for (const activity of ["prepare", "plant", "water"])
+    s = act(
+      s,
+      { kind: "tend", item: "feijao", target: 0, activity },
+      1000 + REGROW_MS,
+    );
+  s = act(
+    s,
+    { kind: "pickup", item: "feijao", target: 0 },
+    1000 + REGROW_MS * 2,
+  );
+  assert.equal(s.delivery?.quantity, 1);
 });
 test("pickup rejects distant, invalid and mixed loads and upgrades older saves without losing money", () => {
   const old = initial();
@@ -135,7 +145,7 @@ test("API persists an expanded-map delivery and replay never duplicates its paym
     target: 9,
     deadline: Date.now() + 9999999,
   });
-  assert.equal(s.delivery.quantity, 3);
+  assert.equal(s.delivery.quantity, 1);
   assert.ok(s.delivery.deadline - Date.now() <= DELIVERY_MS);
   assert.equal((await request("save")).delivery.deadline, s.delivery.deadline);
   await command({ kind: "move", ...buyers.feijao });
@@ -151,9 +161,9 @@ test("API persists an expanded-map delivery and replay never duplicates its paym
     action: { kind: "deliver" },
   };
   s = await request("action", delivery);
-  assert.equal(s.money, 104);
+  assert.equal(s.money, 85);
   assert.equal(s.delivery, null);
-  assert.equal((await request("action", delivery)).money, 104);
-  assert.equal((await request("save")).transactions.at(-1).amount, 24);
+  assert.equal((await request("action", delivery)).money, 85);
+  assert.equal((await request("save")).transactions.at(-1).amount, 5);
   await request("logout", {});
 });

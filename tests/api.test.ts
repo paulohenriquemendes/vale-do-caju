@@ -1,4 +1,4 @@
-import { points } from "../shared/game";
+import { points, sectors } from "../shared/game";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -50,7 +50,7 @@ test("API: accounts, private saves, duplicate commands, conflicts, CSRF and logo
   const cmd = {
     id: randomUUID(),
     version: s.version,
-    action: { kind: "move", ...points.trees[0] },
+    action: { kind: "move", ...sectors.caju[0] },
   };
   const moved = await call("action", cmd);
   assert.equal(moved.status, 200);
@@ -66,7 +66,7 @@ test("API: accounts, private saves, duplicate commands, conflicts, CSRF and logo
     action: { kind: "harvest", target: 0, money: 99999 },
   });
   assert.equal(harvest.body.money, 80);
-  assert.equal(harvest.body.inventory.caju, 6);
+  assert.equal(harvest.body.delivery.quantity, 3);
   assert.equal(
     (
       await call("action", {
@@ -97,8 +97,8 @@ test("API: accounts, private saves, duplicate commands, conflicts, CSRF and logo
     "",
   );
   assert.equal(
-    (await call("save", undefined, login.cookie)).body.inventory.caju,
-    6,
+    (await call("save", undefined, login.cookie)).body.delivery.quantity,
+    3,
   );
   assert.equal(
     (await call("login", { email, password: "WrongPass#2027" }, "")).status,

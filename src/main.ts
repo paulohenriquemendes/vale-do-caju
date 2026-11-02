@@ -1,9 +1,15 @@
+import { catalog, tones, starter } from "../shared/appearance";
+import { paintAvatar } from "./art";
 import { uiIcon } from "./ui-icons";
 import { loadArtwork } from "./art";
 import type { Member } from "./world";
 import "./style.css";
 import {
   initial,
+  isNight,
+  WATER_CAPACITY,
+  productionStatus,
+  type Produce,
   sectors,
   buyers,
   WORLD,
@@ -306,7 +312,7 @@ async function play() {
     return;
   }
   chosenRole = localStorage.getItem("vale-role-" + account!.id) || "livre";
-  app.innerHTML = `<main class="game-shell"><div id="world"></div><div class="hud"><div class="hud-card"><div class="eyebrow">SÍTIO BOA ESPERANÇA</div><strong id="date"></strong></div><div class="hud-card resources"><span>◉ <b id="cash"></b></span><span>♧ <span id="water"></span> L</span><span>ϟ <span id="energy-number"></span><div class="energy"><i id="energy"></i></div></span></div><div class="game-top-buttons"><button class="icon-btn siblings-btn" id="siblings" aria-label="Família online">${uiIcon("people")}<i class="online-dot"></i><span id="online-count">Família</span></button><button class="icon-btn" id="missions" aria-label="Mapa e missões">${uiIcon("map")}</button><button class="icon-btn" id="pause" aria-label="Pausar">${uiIcon("pause")}</button></div></div><div class="quest-pin" id="quest"></div><div id="delivery" class="delivery-panel" aria-live="polite"></div><div class="rotate">↻ Na horizontal, você vê mais do sítio.</div><div class="controls"><div class="joystick" id="joystick" role="group" aria-label="Joystick de movimento"><div class="knob" id="knob"></div></div><div class="action-buttons"><button id="inventory">${uiIcon("bag")}<span class="control-label">Mochila</span></button><button id="tool">${uiIcon("map")}<span class="control-label">Rotas</span></button><button id="interact" class="main-action">${uiIcon("hand")}<b class="control-label" id="context">Explorar</b></button></div></div><div class="save-status" id="save-status">✓ Progresso salvo</div><div class="keyboard-hint">SETAS para andar &nbsp; · &nbsp; E interagir &nbsp; · &nbsp; I mochila</div></main>`;
+  app.innerHTML = `<main class="game-shell"><div id="world"></div><div class="hud"><div class="hud-card"><div class="eyebrow">SÍTIO BOA ESPERANÇA</div><strong id="date"></strong></div><div class="hud-card resources"><span>◉ <b id="cash"></b></span><span>♧ <span id="water"></span> L</span><span>ϟ <span id="energy-number"></span><div class="energy"><i id="energy"></i></div></span></div><div class="game-top-buttons"><button class="icon-btn siblings-btn" id="siblings" aria-label="Família online">${uiIcon("people")}<i class="online-dot"></i><span id="online-count">Família</span></button><button class="icon-btn" id="missions" aria-label="Mapa e missões">${uiIcon("map")}</button><button class="icon-btn character-btn" id="character" aria-label="Nome e personagem">${uiIcon("people")}<span>Personagem</span></button><button class="icon-btn" id="pause" aria-label="Pausar">${uiIcon("pause")}</button></div></div><div class="quest-pin"><div id="quest"></div><small id="needs" aria-live="polite"></small></div><div id="delivery" class="delivery-panel" aria-live="polite"></div><div class="rotate">↻ Na horizontal, você vê mais do sítio.</div><div class="controls"><div class="joystick" id="joystick" role="group" aria-label="Joystick de movimento"><div class="knob" id="knob"></div></div><div class="action-buttons"><button id="inventory">${uiIcon("bag")}<span class="control-label">Mochila</span></button><button id="tool">${uiIcon("map")}<span class="control-label">Rotas</span></button><button id="interact" class="main-action">${uiIcon("hand")}<b class="control-label" id="context">Explorar</b></button></div></div><div class="save-status" id="save-status">✓ Progresso salvo</div><div class="keyboard-hint">SETAS para andar &nbsp; · &nbsp; E interagir &nbsp; · &nbsp; I mochila</div></main>`;
   pos = { x: state!.x, y: state!.y };
   game = startWorld(
     "world",
@@ -330,6 +336,7 @@ async function play() {
   on("inventory", inventory);
   on("missions", journal);
   on("pause", pause);
+  on("character", wardrobe);
   on("interact", interact);
   on("tool", () => {
     journal();
@@ -353,9 +360,22 @@ function hud() {
   document.getElementById("water")!.textContent = String(s.water);
   document.getElementById("energy-number")!.textContent = String(s.energy);
   document.getElementById("energy")!.style.width = s.energy + "%";
+  const player = s.family[0];
+  const needs = document.getElementById("needs");
+  if (needs)
+    needs.textContent = `Água no corpo ${player.thirst}% · Alimentação ${player.hunger}% · Saúde ${player.health}%`;
+  if (!player.alive && !document.getElementById("restart-day"))
+    modal(
+      "Sua jornada terminou",
+      `<p>${player.thirst === 0 ? "Você ficou sem beber água por tempo demais." : "Você ficou sem se alimentar por tempo demais."} Ao recomeçar, cuide da sede e da fome: converse com Mãe Rosa.</p><button id="restart-day" class="primary">Recomeçar o dia</button>`,
+      () =>
+        on("restart-day", async () => {
+          if (await perform({ kind: "restartDay" })) closeModal();
+        }),
+    );
   const m = missions.find(([id]) => !s.missions.includes(id));
   document.getElementById("quest")!.innerHTML =
-    `<small>CAPÍTULO 1 · CRIANDO RAÍZES</small>${m ? `◇ ${m[1]}` : "✓ Primeiros passos concluídos! Continue cultivando."}`;
+    `<small>${isNight(s) ? "NOITE · COMÉRCIO FECHADO" : "CAPÍTULO 1 · CRIANDO RAÍZES"}</small>${player.thirst <= 30 ? "Peça água à mãe! " : ""}${player.hunger <= 35 ? "Está na hora de comer. " : ""}${m ? `◇ ${m[1]}` : "✓ Primeiros passos concluídos! Continue cultivando."}`;
 }
 function joystick() {
   const el = document.getElementById("joystick")!,
@@ -444,7 +464,11 @@ async function perform(action: Action, success?: string) {
       dirty = false;
     }
     await send(action);
-    if (action.kind === "enter" || action.kind === "exit") {
+    if (
+      action.kind === "enter" ||
+      action.kind === "exit" ||
+      action.kind === "restartDay"
+    ) {
       pos = { x: state!.x, y: state!.y };
       dirty = false;
     }
@@ -516,6 +540,24 @@ function dialog(name: string, text: string) {
 }
 async function interact() {
   if (busy) return;
+  if (context === "Fechado") {
+    toast("Fechado até o amanhecer. Vá para casa descansar.");
+    return;
+  }
+  if (
+    ["Cuidar do pomar", "Cuidar do roçado", "Cuidar das galinhas"].includes(
+      context,
+    )
+  ) {
+    productionPanel(
+      context === "Cuidar do pomar"
+        ? "caju"
+        : context === "Cuidar do roçado"
+          ? "feijao"
+          : "ovo",
+    );
+    return;
+  }
   if (context === "Entregar carga") {
     const d = state!.delivery;
     if (d)
@@ -564,16 +606,7 @@ async function interact() {
     return;
   }
   if (context === "Conversar") {
-    const teen = Math.hypot(pos.x - points.teen.x, pos.y - points.teen.y) < 100;
-    if (await perform({ kind: "talk", target: teen ? 1 : 0 }))
-      dialog(
-        teen ? "Pai João" : "Mãe Rosa",
-        teen
-          ? "Meu filho, quando os irmãos dividem o trabalho, o sítio rende mais. Um cuida das galinhas, outro do pomar. Os compradores ficam pertinho de cada atividade. Anote cada venda e reserve um pouco para o caixa da família, se puder."
-          : state!.family[1].hunger < 35
-            ? "A despensa anda vazia. Vamos comprar uma cesta na feira e dividir com a família?"
-            : "Bom ter vocês por perto! Já deixamos os dez galinheiros, dez cajueiros e dez canteiros produzindo. Passe sobre ovos, cajus ou feijão para recolher. Você tem 90 segundos desde a primeira coleta: saia pela porteira ao sul e entregue ao comprador da estrada. Juntar mais não reinicia o relógio!",
-      );
+    parentConversation();
     return;
   }
   if (context === "Separar") {
@@ -610,7 +643,7 @@ async function interact() {
   if (context === "Água") {
     confirm(
       "Cuidar da cisterna",
-      `Reserva: ${state!.water}/150 L. Comprar uma entrega de 50 L por R$ 12? A chuva também repõe a reserva a cada quatro dias de jogo.`,
+      `Reserva: ${state!.water}/${WATER_CAPACITY} L. Comprar uma entrega de 50 L por R$ 12? A chuva também repõe a reserva a cada quatro dias de jogo.`,
       () => perform({ kind: "refill" }, "Água recebida na cisterna."),
     );
     return;
@@ -695,7 +728,7 @@ function market(type: typeof merchant = "all") {
       .filter(([id]) => allowed[type].includes(id as Item))
       .map(
         ([id, price]) =>
-          `<div class="row"><span><strong>${labels[id as Item]}</strong><small>${money(price!)} / unidade${purchase ? "" : ` · Na mochila: ${state!.inventory[id as Item] ?? 0}`}</small></span><button data-trade="${id}" data-buy="${purchase ? 1 : 0}">${purchase ? "Comprar" : "Vender"}</button></div>`,
+          `<div class="row"><span><strong>${labels[id as Item]}</strong><small>${money(price!)} / ${id === "feijao" ? "kg" : "unidade"}${purchase ? "" : ` · Na mochila: ${state!.inventory[id as Item] ?? 0}`}</small></span><button data-trade="${id}" data-buy="${purchase ? 1 : 0}">${purchase ? "Comprar" : "Vender"}</button></div>`,
       )
       .join("");
   modal(
@@ -723,26 +756,13 @@ function market(type: typeof merchant = "all") {
   );
 }
 function poultry() {
-  modal(
-    "Galinheiro da família",
-    `<div class="activity-steps"><span>1. Cuidar</span><b>→</b><span>2. Recolher</span><b>→</b><span>3. Vender</span></div><p>Cuide das galinhas com <strong>1 porção de ração</strong> e recolha <strong>6 ovos caipiras</strong>. Dona Lúcia compra os ovos por <strong>R$ 4,00 cada</strong> no balcão ao lado.</p><div class="wallet-banner"><span>Seis ovos vendidos</span><strong>R$ 24,00</strong></div><p>Na mochila: ${state!.inventory.ovo ?? 0} ovos · ${state!.inventory.racao ?? 2} porções de ração. Custo de reposição: R$ 6,00 por porção.</p><button id="collect-eggs" class="primary full" ${state!.coopDay === state!.day ? "disabled" : ""}>${state!.coopDay === state!.day ? "Galinhas cuidadas hoje" : "Cuidar e recolher 6 ovos · 8 energia"}</button><p class="note">Uma coleta por irmão a cada dia de jogo. Descansar em casa libera a próxima coleta. Caminhe alguns passos à direita para encontrar Dona Lúcia.</p>`,
-    () =>
-      on("collect-eggs", async () => {
-        if (
-          await perform(
-            { kind: "poultry" },
-            "+6 ovos na mochila! Dona Lúcia compra logo ao lado.",
-          )
-        )
-          poultry();
-      }),
-  );
+  productionPanel("ovo");
 }
 function trade(item: Item, purchase: boolean) {
   const price = (purchase ? buy : sell)[item]!;
   modal(
     `${purchase ? "Comprar" : "Vender"} ${labels[item]}`,
-    `<p>${money(price)} por unidade · Seu saldo: ${money(state!.money)}</p><label>Quantidade<input id="quantity" type="number" min="1" max="99" value="1" inputmode="numeric"></label><p id="total" style="margin-top:15px">Total: ${money(price)}</p><button id="trade-confirm" class="primary full">Confirmar ${purchase ? "compra" : "venda"}</button>`,
+    `<p>${money(price)} por ${item === "feijao" ? "kg" : "unidade"} · Seu saldo: ${money(state!.money)}</p><label>Quantidade<input id="quantity" type="number" min="1" max="99" value="1" inputmode="numeric"></label><p id="total" style="margin-top:15px">Total: ${money(price)}</p><button id="trade-confirm" class="primary full">Confirmar ${purchase ? "compra" : "venda"}</button>`,
     () => {
       const input = document.getElementById("quantity") as HTMLInputElement;
       input.oninput = () =>
@@ -768,56 +788,31 @@ function trade(item: Item, purchase: boolean) {
   );
 }
 function cultivate() {
-  modal(
-    "Cuidar do roçado",
-    `<p>Feijão-de-corda: plante, regue e espere três dias de jogo. Este ciclo foi abreviado para o protótipo.</p><div class="grid">${state!.plots.map((p, i) => `<div class="tile"><strong>Canteiro ${i + 1}</strong><small>${p.planted ? `Plantado há ${state!.day - p.planted} dias · ${p.watered ? "regado" : "precisa de água"}` : "Terra pronta para plantar"}</small><button data-plot="${i}" data-kind="${p.planted ? "crop" : "plant"}">${p.planted ? "Colher feijão" : "Plantar · 1 semente"}</button></div>`).join("")}</div><div class="actions"><button id="water-plots" class="primary">Regar roçado · 5 L</button><button id="expand" class="ghost">Plantar muda de cajueiro</button></div><p class="note">O cajueiro é perene. A muda plantada aparece no sítio, mas não produz neste capítulo inicial. As árvores adultas renovam a colheita a cada três dias de jogo.</p>`,
-    () => {
-      document.querySelectorAll<HTMLButtonElement>("[data-plot]").forEach(
-        (b) =>
-          (b.onclick = async () => {
-            if (
-              await perform(
-                { kind: b.dataset.kind!, target: Number(b.dataset.plot) },
-                "Roçado atualizado.",
-              )
-            )
-              cultivate();
-          }),
-      );
-      on("water-plots", async () => {
-        if (await perform({ kind: "water" }, "Roçado regado.")) cultivate();
-      });
-      on("expand", async () => {
-        if (
-          await perform({ kind: "expand" }, "Uma muda plantada para o futuro.")
-        )
-          cultivate();
-      });
-    },
-  );
+  productionPanel("feijao");
 }
 function journal() {
   modal(
     "Mapa e missões",
-    `${farmMap()}<p class="note">Passe sobre a produção para coletar. Cada ponto repõe seus produtos em 2 minutos. Leve a carga em até 90 segundos pela porteira sul e toque em Entregar carga junto ao comprador. O prazo continua nos menus.</p><div class="mini-map"><span>↖ Casa e cisterna</span><span>↗ 10 cajueiros</span><span>↙ 10 galinheiros</span><span>↘ 10 canteiros de feijão</span></div><br><div class="eyebrow">CAPÍTULO 1 · CRIANDO RAÍZES</div>${missions.map(([id, label], i) => `<div class="mission ${state!.missions.includes(id) ? "done" : ""}"><i>${state!.missions.includes(id) ? "✓" : i + 1}</i>${label}</div>`).join("")}<button id="discoveries" class="primary full">Abrir Caderno de Descobertas</button>`,
+    `${farmMap()}<p class="note">Passe sobre a produção para coletar. Após colher, cuide do local novamente: prepare e regue o pomar; prepare, plante e regue o feijão; dê ração e água e limpe o galinheiro. A produção leva 1 a 4 minutos, conforme o cultivo. Leve a carga em até 90 segundos pela porteira sul e toque em Entregar carga junto ao comprador. O prazo continua nos menus.</p><div class="mini-map"><span>↖ Casa e cisterna</span><span>↗ 10 cajueiros</span><span>↙ 10 galinheiros</span><span>↘ 10 canteiros de feijão</span></div><br><div class="eyebrow">CAPÍTULO 1 · CRIANDO RAÍZES</div>${missions.map(([id, label], i) => `<div class="mission ${state!.missions.includes(id) ? "done" : ""}"><i>${state!.missions.includes(id) ? "✓" : i + 1}</i>${label}</div>`).join("")}<button id="discoveries" class="primary full">Abrir Caderno de Descobertas</button>`,
     () => on("discoveries", discoveries),
   );
 }
 function discoveries() {
   modal(
     "Caderno de Descobertas",
-    `<div class="tile"><strong>01 · Uma cultura para muitos anos</strong><p>O cajueiro é uma planta perene. Investir em mudas pede planejamento: o retorno não é imediato. O protótipo começa com árvores adultas para sustentar a primeira safra.</p></div><br><div class="tile"><strong>02 · Água guardada, futuro cuidado</strong><p>Uma reserva de água ajuda a enfrentar períodos secos. No jogo, regar e atender a família disputam a mesma reserva: observe a cisterna antes de gastar.</p></div><br><div class="tile"><strong>03 · A castanha e o pedúnculo</strong><p>A castanha é o fruto verdadeiro. A parte carnosa conhecida como caju é o pedúnculo. Neste MVP, a separação converte a unidade de colheita em castanha e simplifica o aproveitamento do pedúnculo.</p></div><p class="note">Castanhas são vendidas in natura. Não há instruções de processamento doméstico: o beneficiamento envolve cuidados técnicos e riscos associados à casca.</p><p>Referências para aprofundamento: <a href="https://www.atermaisdigital.cnptia.embrapa.br/web/caju/o-cajueiro" target="_blank" rel="noopener">Embrapa · Cultivo do caju</a> e <a href="https://www.ibge.gov.br/cidades-e-estados/ce/pacajus.html" target="_blank" rel="noopener">IBGE · Pacajus</a>.</p><small>Os preços, rendimentos, clima periódico e ciclos abreviados são regras fictícias de jogo. O conteúdo deverá passar por revisão docente antes do estudo educacional.</small>`,
+    `<div class="tile"><strong>01 · Uma cultura para muitos anos</strong><p>O cajueiro é uma planta perene. Investir em mudas pede planejamento: o retorno não é imediato. O protótipo começa com árvores adultas para sustentar a primeira safra.</p></div><br><div class="tile"><strong>02 · Água guardada, futuro cuidado</strong><p>Uma reserva de água ajuda a enfrentar períodos secos. No jogo, regar e atender a família disputam a mesma reserva: observe a cisterna antes de gastar.</p></div><br><div class="tile"><strong>03 · A castanha e o pedúnculo</strong><p>A castanha é o fruto verdadeiro. A parte carnosa conhecida como caju é o pedúnculo. Bento compra a parte carnosa do caju e devolve a castanha crua à mochila para uma venda separada. Você também pode separar as castanhas na bancada, sem reiniciar o prazo de entrega.</p></div><p class="note">Castanhas são vendidas in natura. Não há instruções de processamento doméstico: o beneficiamento envolve cuidados técnicos e riscos associados à casca.</p><p>Referências para aprofundamento: <a href="https://www.atermaisdigital.cnptia.embrapa.br/web/caju/o-cajueiro" target="_blank" rel="noopener">Embrapa · Cultivo do caju</a> e <a href="https://www.ibge.gov.br/cidades-e-estados/ce/pacajus.html" target="_blank" rel="noopener">IBGE · Pacajus</a>.</p><small>O ovo usa referência de varejo de Fortaleza (R$ 6,99 por 10 unidades); o feijão usa R$ 5/kg como aproximação de venda ao comprador. Os demais preços, porções, rendimentos e ciclos abreviados são simplificações do jogo. O conteúdo deverá passar por revisão docente antes do estudo educacional.</small>`,
   );
 }
 function pause() {
   modal(
     "Uma pausa à sombra",
-    `<p>O personagem fica parado neste menu. O prazo real da entrega continua correndo, inclusive ao sair do jogo.</p><div class="grid"><button id="resume" class="primary">Continuar</button><button id="pause-family">Família</button><button id="pause-settings">Configurações</button><button id="account-options">${account?.guest ? "Guardar minha partida" : "Minha conta"}</button><button id="menu">Salvar e voltar ao menu</button></div>`,
+    `<p>O personagem fica parado neste menu. O prazo real da entrega continua correndo, inclusive ao sair do jogo.</p><div class="grid"><button id="resume" class="primary">Continuar</button><button id="pause-family">Família</button><button id="wardrobe">Nome e personagem</button><button id="pause-settings">Configurações</button><button id="account-options">${account?.guest ? "Guardar minha partida" : "Minha conta"}</button><button id="menu">Salvar e voltar ao menu</button></div>`,
     () => {
       on("resume", closeModal);
       on("account-options", accountOptions);
       on("pause-family", family);
       on("pause-settings", settings);
+      on("wardrobe", wardrobe);
       on("menu", async () => {
         if (busy) {
           toast("Aguarde o salvamento atual.");
@@ -885,6 +880,7 @@ const roleNames: Record<string, string> = {
 };
 async function heartbeat() {
   if (!account || !game || !state || heartbeating) return;
+  const heartbeatAccount = account.id;
   heartbeating = true;
   try {
     const data = await api("family/heartbeat", {
@@ -892,7 +888,7 @@ async function heartbeat() {
       location: state.location,
       role: chosenRole,
     });
-    if (!game || !account) return;
+    if (!game || !account || account.id !== heartbeatAccount) return;
     cooperative = data;
     scene?.updateFamily(data.members, account.id, data.treasury);
     const count = document.getElementById("online-count");
@@ -1040,4 +1036,209 @@ async function leaveForAuth(kind: "register" | "login") {
   } catch {
     toast("Reconecte para salvar sua partida antes de continuar.");
   }
+}
+
+function wardrobe() {
+  if (!state) return;
+  const look = state.appearance || starter("", state.skin);
+  const owned = state.owned || Object.values(look);
+  modal(
+    "Nome e personagem",
+    `<form id="rename-form"><label>Nome do personagem<input id="character-name" value="${esc(state.name)}" minlength="2" maxlength="30" required autocomplete="nickname"></label><button class="primary" type="submit">Salvar nome</button></form><div class="wardrobe-intro"><canvas id="outfit-preview" aria-label="Seu personagem com o visual equipado"></canvas><div><div class="eyebrow">DO SEU JEITO</div><p>Roupas para o trabalho e para o domingo.</p><strong>${money(state.money)}</strong><small>Somente dinheiro do jogo. O visual não muda sua produção.</small></div></div><h3>Tom de pele · gratuito</h3><div class="tone-options">${tones.map((tone, i) => `<button data-tone="${tone}" aria-label="Tom de pele ${i + 1}" aria-pressed="${look.tone === tone}" style="--tone:${tone}"></button>`).join("")}</div>${(
+      ["shirt", "pants", "shoes", "hair"] as const
+    )
+      .map(
+        (slot, i) =>
+          `<h3>${["Camisas", "Calças", "Sapatos", "Cabelos"][i]}</h3>${catalog
+            .filter((c) => c.slot === slot)
+            .map((c) => {
+              const equipped = look[slot] === c.id,
+                has = owned.includes(c.id) || c.price === 0;
+              return `<div class="row"><span><strong>${c.name}</strong><small>${has ? "Troca gratuita" : money(c.price)}</small></span><button data-cosmetic="${c.id}" ${equipped || (!has && state!.money < c.price) ? "disabled" : ""}>${equipped ? "Vestindo" : has ? "Usar" : "Comprar"}</button></div>`;
+            })
+            .join("")}`,
+      )
+      .join(
+        "",
+      )}<p class="muted">Sua primeira roupa já é sua. Depois de comprar, você pode usar novamente sem pagar.</p>`,
+    () => {
+      document.getElementById("rename-form")!.onsubmit = async (event) => {
+        event.preventDefault();
+        if (
+          await perform(
+            {
+              kind: "rename",
+              name: document.querySelector<HTMLInputElement>("#character-name")!
+                .value,
+            },
+            "Nome atualizado!",
+          )
+        ) {
+          wardrobe();
+          void heartbeat();
+        }
+      };
+      paintAvatar(
+        document.querySelector<HTMLCanvasElement>("#outfit-preview")!,
+        "#d5906b",
+        0,
+        0,
+        state!.hat,
+        look,
+      );
+      document.querySelectorAll<HTMLButtonElement>("[data-tone]").forEach(
+        (button) =>
+          (button.onclick = async () => {
+            if (
+              await perform({ kind: "appearance", tone: button.dataset.tone })
+            )
+              wardrobe();
+          }),
+      );
+      document.querySelectorAll<HTMLButtonElement>("[data-cosmetic]").forEach(
+        (button) =>
+          (button.onclick = () => {
+            const item = catalog.find((c) => c.id === button.dataset.cosmetic)!;
+            const apply = async () => {
+              if (
+                await perform(
+                  { kind: "appearance", cosmetic: item.id },
+                  "Visual atualizado!",
+                )
+              ) {
+                wardrobe();
+                void heartbeat();
+              }
+            };
+            if (owned.includes(item.id) || item.price === 0) void apply();
+            else
+              confirm(
+                "Comprar visual",
+                `${item.name} por ${money(item.price)} do jogo? A compra fica no seu guarda-roupa.`,
+                apply,
+              );
+          }),
+      );
+    },
+  );
+}
+
+function parentConversation(blessed = false) {
+  const father = Math.hypot(pos.x - points.teen.x, pos.y - points.teen.y) < 100;
+  const name = father ? "Pai João" : "Mãe Rosa";
+  if (!blessed) {
+    modal(
+      name,
+      `<p>Antes de prosear, cumprimente ${father ? "seu pai" : "sua mãe"}.</p><button id="blessing" class="primary">Pedir a bênção ${father ? "ao pai" : "à mãe"}</button>`,
+      () =>
+        on("blessing", async () => {
+          if (await perform({ kind: "talk", target: father ? 1 : 0 }))
+            parentConversation(true);
+        }),
+    );
+    return;
+  }
+  modal(
+    name,
+    `<p>— A bênção, ${father ? "pai" : "mãe"}!</p><p>— Deus te abençoe, meu filho! ${father ? "Divida o serviço com seus irmãos e não esqueça de beber água e comer. Depois do jantar, todo mundo descansa até o sol nascer." : "O sol aperta. Venha beber água sempre que precisar. A merenda sai às 9h, o almoço às 12h e o jantar a partir das 17h."}</p>${father ? "" : `<div class="grid"><button id="mother-water">Pedir água · grátis</button>${["Merenda", "Almoço", "Jantar"].map((meal, i) => `<button data-meal="${i}" ${state!.meals?.includes(meal) || state!.minute < [540, 720, 1020][i] ? "disabled" : ""}>Pedir ${meal.toLowerCase()}${state!.meals?.includes(meal) ? " · já comeu" : ""}</button>`).join("")}</div><small>Refeições da casa gratuitas, uma de cada por dia. A água sai da cisterna.</small>`}`,
+    () => {
+      on("mother-water", async () => {
+        if (
+          await perform(
+            { kind: "drinkMother" },
+            "Água fresquinha! Sede saciada.",
+          )
+        )
+          parentConversation(true);
+      });
+      document.querySelectorAll<HTMLButtonElement>("[data-meal]").forEach(
+        (button) =>
+          (button.onclick = async () => {
+            if (
+              await perform(
+                { kind: "meal", target: Number(button.dataset.meal) },
+                Number(button.dataset.meal) === 2
+                  ? "Boa noite! O sítio reabre ao amanhecer."
+                  : "Bom apetite!",
+              )
+            )
+              parentConversation(true);
+          }),
+      );
+    },
+  );
+}
+setInterval(() => {
+  if (
+    game &&
+    account &&
+    state &&
+    !busy &&
+    !document.hidden &&
+    !document.querySelector(".overlay") &&
+    state.family[0].alive
+  )
+    void perform({ kind: "routine" });
+}, 15000);
+
+function productionPanel(item: Produce) {
+  const i = sectors[item].reduce(
+    (best, p, i) =>
+      Math.hypot(pos.x - p.x, pos.y - p.y) <
+      Math.hypot(pos.x - sectors[item][best].x, pos.y - sectors[item][best].y)
+        ? i
+        : best,
+    0,
+  );
+  const p = state!.production[item][i];
+  const near =
+    Math.hypot(pos.x - sectors[item][i].x, pos.y - sectors[item][i].y) < 125;
+  const choices =
+    item === "ovo"
+      ? [
+          ["feed", "Dar ração · 1 porção", p.fed],
+          ["water", "Encher bebedouro · 1 L", p.watered],
+          ["clean", "Limpar galinheiro", p.clean],
+        ]
+      : [
+          [
+            "prepare",
+            item === "caju"
+              ? "Gradear ao redor do cajueiro"
+              : "Preparar a terra",
+            p.prepared,
+          ],
+          [
+            "plant",
+            item === "caju"
+              ? "Renovar cajueiro · 1 muda"
+              : "Plantar feijão · 1 semente",
+            item === "feijao" && p.planted,
+          ],
+          ["water", `Regar · ${item === "caju" ? 3 : 1} L`, p.watered],
+        ];
+  modal(
+    `${item === "ovo" ? "Galinheiro" : item === "caju" ? "Cajueiro" : "Canteiro"} ${i + 1}`,
+    `<p><strong>${productionStatus(state!, item, i)}</strong></p><p>${item === "ovo" ? "Alimente, dê água e limpe o abrigo. Em 1 minuto, os ovos estarão prontos." : item === "caju" ? "Depois da colheita, gradeie superficialmente ao redor e regue. A árvore adulta volta a produzir em 2 minutos. Se quiser renovar, plante uma muda antes de regar; ela leva 4 minutos." : "Prepare a terra, plante uma semente e regue. O feijão cresce em 2 minutos. A colheita libera o canteiro para um novo plantio."}</p><small>Ciclos acelerados para o jogo. ${near ? "Você está perto deste local." : "Aproxime-se para trabalhar."}</small><div class="grid">${choices.map(([activity, label, done]) => `<button data-tend="${activity}" ${!near || isNight(state!) || p.readyAt || done ? "disabled" : ""}>${label}${done ? " · feito" : ""}</button>`).join("")}</div><p>Água: ${state!.water} L · Sementes: ${state!.inventory.semente} · Mudas: ${state!.inventory.muda} · Ração: ${state!.inventory.racao}</p><p>Quando estiver pronto, passe sobre o produto. Você tem 90 segundos para entregar ao comprador fora da porteira.</p><button id="production-return" class="primary">Voltar ao sítio</button>`,
+    () => {
+      on("production-return", closeModal);
+      document.querySelectorAll<HTMLButtonElement>("[data-tend]").forEach(
+        (button) =>
+          (button.onclick = async () => {
+            if (
+              await perform(
+                {
+                  kind: "tend",
+                  item,
+                  target: i,
+                  activity: button.dataset.tend,
+                },
+                "Cuidado realizado.",
+              )
+            )
+              productionPanel(item);
+          }),
+      );
+    },
+  );
 }

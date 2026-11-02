@@ -1548,13 +1548,160 @@ button.ghost {
 }
 
 /* Keep small game labels readable at native browser resolution. */
-.hud-card .eyebrow { font-size: 10px; letter-spacing: .6px; color: #f7e8c4; }
-.hud-card strong, .siblings-btn, .control-label { font-size: 13px; }
-.game-shell button { text-shadow: none; }
-.save-status, .rotate, .delivery-panel span { font-size: 12px; }
-.quest-pin, .delivery-panel { line-height: 1.45; }
+.hud-card .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  color: #f7e8c4;
+}
+.hud-card strong,
+.siblings-btn,
+.control-label {
+  font-size: 13px;
+}
+.game-shell button {
+  text-shadow: none;
+}
+.save-status,
+.rotate,
+.delivery-panel span {
+  font-size: 12px;
+}
+.quest-pin,
+.delivery-panel {
+  line-height: 1.45;
+}
 @media (max-width: 560px) {
-  .hud-card .eyebrow { font-size: 10px; }
-  .hud-card strong { font-size: 12px; }
-  .siblings-btn { font-size: 12px; }
+  .hud-card .eyebrow {
+    font-size: 10px;
+  }
+  .hud-card strong {
+    font-size: 12px;
+  }
+  .siblings-btn {
+    font-size: 12px;
+  }
+}
+
+.wardrobe-intro {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px;
+  background: #e9dcc2;
+  border: 1px solid #b89d77;
+  border-radius: 8px;
+}
+.wardrobe-intro canvas {
+  width: 96px;
+  height: 120px;
+  flex-shrink: 0;
+  image-rendering: auto;
+}
+.wardrobe-intro small {
+  display: block;
+  margin-top: 8px;
+}
+.tone-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 24px;
+}
+.tone-options button {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  background: var(--tone);
+  border: 3px solid #fcf3dc;
+  border-radius: 50%;
+}
+.tone-options button[aria-pressed="true"] {
+  outline: 3px solid #466b54;
+}
+
+.character-btn {
+  gap: 6px;
+  padding-inline: 10px !important;
+}
+.character-btn span {
+  font-size: 12px;
+}
+#rename-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+#rename-form label {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .character-btn span {
+    font-size: 10px;
+  }
+  #rename-form {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 560px) and (orientation: portrait) {
+  .hud {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    left: 12px;
+    right: 12px;
+    gap: 7px;
+  }
+  .hud > .hud-card:first-child {
+    max-width: none;
+    min-width: 0;
+    padding: 8px;
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .hud-card.resources {
+    order: initial;
+    width: auto;
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
+    gap: 6px;
+    padding: 8px;
+    font-size: 11px;
+  }
+  .energy {
+    width: 32px;
+  }
+  .game-top-buttons {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .quest-pin {
+    top: 130px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    padding: 8px 10px;
+  }
+  #quest small {
+    display: none;
+  }
+  #quest {
+    font-size: 11px;
+  }
+  #needs {
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .rotate {
+    display: none;
+  }
+  .delivery-panel {
+    top: 205px;
+    left: 12px;
+    width: 215px;
+  }
 }

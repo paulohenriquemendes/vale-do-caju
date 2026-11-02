@@ -1,4 +1,4 @@
-import { WORLD, points, sectors } from "../shared/game";
+import { WORLD, points, sectors, isNight, type State } from "../shared/game";
 
 // Recompose the approved original illustration into playable, generously spaced sectors.
 export function paintExpandedFarm(
@@ -6,6 +6,7 @@ export function paintExpandedFarm(
   image: HTMLImageElement,
   ground: HTMLImageElement,
   treasury: number,
+  state: State,
 ) {
   const sx = image.naturalWidth / 1280,
     sy = image.naturalHeight / 800;
@@ -46,17 +47,41 @@ export function paintExpandedFarm(
   }
   // House and cistern retain their original door positions for existing saves.
   patch(65, 55, 415, 230, 65, 55);
+  patch(370, 143, 90, 95, 350, 105, 135, 143);
   patch(548, 320, 110, 90, 548, 320);
   // Sandy walking lanes separate the sectors; the southern lane is outside the fence.
   c.fillStyle = "#e3b67588";
   c.fillRect(1120, 70, 160, 1470);
   c.fillRect(60, 1240, 2440, 100);
   c.fillRect(60, 1420, 2440, 200);
-  for (const p of points.trees)
-    patch(572, 42, 180, 183, p.x - 90, p.y - 165, 180, 183);
+  for (const [i, p] of points.trees.entries()) {
+    const young = state.production?.caju[i].young;
+    patch(
+      572,
+      42,
+      180,
+      183,
+      p.x - (young ? 38 : 90),
+      p.y - (young ? 65 : 165),
+      young ? 76 : 180,
+      young ? 78 : 183,
+    );
+  }
   for (const p of sectors.ovo)
     patch(67, 374, 190, 218, p.x - 82, p.y - 168, 164, 188);
-  for (const p of sectors.feijao) {
+  for (const [i, p] of sectors.feijao.entries()) {
+    if (state.production && !state.production.feijao[i].planted) {
+      c.fillStyle = state.production.feijao[i].prepared ? "#806044" : "#b69a67";
+      c.fillRect(p.x - 78, p.y - 91, 156, 120);
+      c.strokeStyle = "#654f38";
+      for (let row = 0; row < 5; row++) {
+        c.beginPath();
+        c.moveTo(p.x - 68, p.y - 78 + row * 22);
+        c.lineTo(p.x + 68, p.y - 78 + row * 22);
+        c.stroke();
+      }
+      continue;
+    }
     patch(577, 469, 130, 100, p.x - 78, p.y - 91, 156, 120);
     for (let j = 0; j < 15; j++) {
       const x = p.x - 52 + (j % 5) * 25,
@@ -118,5 +143,17 @@ export function paintExpandedFarm(
   patch(960, 270, 100, 100, points.fruitBuyer.x - 50, 1435, 100, 100);
   patch(860, 475, 125, 110, points.cropBuyer.x - 63, 1435, 125, 110);
   patch(1030, 85, 225, 195, points.market.x - 112, 1360, 225, 195);
+  if (isNight(state)) {
+    for (const p of [
+      points.market,
+      points.eggBuyer,
+      points.fruitBuyer,
+      points.cropBuyer,
+    ])
+      sign(p.x, p.y - 60, "FECHADO · amanhecer");
+    sign(610, 425, "GALINHEIROS · descanso");
+    sign(1820, 100, "POMAR · fechado à noite");
+    sign(1810, 740, "ROÇADO · fechado à noite");
+  }
   if (treasury >= 300) sign(510, 300, "Cantinho da família");
 }

@@ -1,9 +1,11 @@
+import type { Appearance } from "../shared/appearance";
 import Phaser from "phaser";
 import { paintLandscape, paintAvatar, paintNpc } from "./art";
 export type Member = {
   id: string;
   name: string;
   skin: string;
+  appearance?: Appearance;
   hat: boolean;
   x: number;
   y: number;
@@ -12,6 +14,8 @@ export type Member = {
 };
 import {
   points,
+  isNight,
+  productionStatus,
   WORLD,
   sectors,
   buyers,
@@ -67,7 +71,17 @@ export class World extends Phaser.Scene {
     this.drops = this.add.graphics().setDepth(1500);
     this.shadow = this.add.ellipse(0, 0, 25, 10, 0x33442c, 0.25);
     this.body = this.add
-      .image(0, 0, this.avatarTexture(this.state.skin, 0, 0, this.state.hat))
+      .image(
+        0,
+        0,
+        this.avatarTexture(
+          this.state.skin,
+          0,
+          0,
+          this.state.hat,
+          this.state.appearance,
+        ),
+      )
       .setDisplaySize(64, 80)
       .setOrigin(0.5, 0.8375);
     this.player = this.add
@@ -75,7 +89,7 @@ export class World extends Phaser.Scene {
       .setDepth(2000);
     const name = this.add
       .text(0, -68, this.state.name + " · você", {
-        fontFamily: "\"DM Sans\", sans-serif",
+        fontFamily: '"DM Sans", sans-serif',
         fontSize: "13px",
         fontStyle: "bold",
         resolution: 3,
@@ -108,11 +122,19 @@ export class World extends Phaser.Scene {
   resize() {
     const w = this.scale.width / renderDensity,
       h = this.scale.height / renderDensity;
-    this.cameras.main.setZoom(renderDensity * (w < 600 ? 1.05 : h < 500 ? 1.1 : 1.35));
+    this.cameras.main.setZoom(
+      renderDensity * (w < 600 ? 1.05 : h < 500 ? 1.1 : 1.35),
+    );
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
   }
-  avatarTexture(skin: string, dir: number, frame: number, hat: boolean) {
-    const key = `person-${skin}-${dir}-${frame}-${hat}`;
+  avatarTexture(
+    skin: string,
+    dir: number,
+    frame: number,
+    hat: boolean,
+    appearance?: Appearance,
+  ) {
+    const key = `person-${skin}-${dir}-${frame}-${hat}-${JSON.stringify(appearance)}`;
     if (!this.textures.exists(key)) {
       const t = this.textures.createCanvas(key, 128, 160)!;
       paintAvatar(
@@ -126,6 +148,7 @@ export class World extends Phaser.Scene {
         dir,
         frame,
         hat,
+        appearance,
       );
       t.refresh();
     }
@@ -151,7 +174,7 @@ export class World extends Phaser.Scene {
     if (this.state.location === "farm") {
       this.obstacles = [
         new Phaser.Geom.Rectangle(112, 89, 220, 151),
-        new Phaser.Geom.Rectangle(382, 158, 70, 65),
+        new Phaser.Geom.Rectangle(360, 125, 110, 90),
         new Phaser.Geom.Rectangle(60, WORLD.fenceY - 20, 1060, 28),
         new Phaser.Geom.Rectangle(1280, WORLD.fenceY - 20, 1220, 28),
         new Phaser.Geom.Rectangle(765, 650, 175, 130),
@@ -201,6 +224,12 @@ export class World extends Phaser.Scene {
     }
   }
   npc(x: number, y: number, skin: string, name: string, hat: boolean) {
+    if (
+      isNight(this.state) &&
+      !name.startsWith("Mãe") &&
+      !name.startsWith("Pai")
+    )
+      name = "Fechado · amanhã às 7h";
     const index = name.startsWith("Mãe")
       ? 0
       : name.startsWith("Pai")
@@ -224,10 +253,10 @@ export class World extends Phaser.Scene {
     this.map.add(
       this.add
         .text(x, y - 65, name, {
-          fontFamily: "\"DM Sans\", sans-serif",
+          fontFamily: '"DM Sans", sans-serif',
           fontSize: "13px",
-        fontStyle: "bold",
-        resolution: 3,
+          fontStyle: "bold",
+          resolution: 3,
           color: "#344d3c",
           backgroundColor: "#fff9eaeF",
           padding: { x: 7, y: 4 },
@@ -242,6 +271,7 @@ export class World extends Phaser.Scene {
         this.direction,
         Math.floor(this.step) % 4,
         this.state.hat,
+        this.state.appearance,
       ),
     );
   }
@@ -264,15 +294,15 @@ export class World extends Phaser.Scene {
       let other = this.relatives.get(m.id);
       if (!other) {
         const body = this.add
-          .image(0, 0, this.avatarTexture(m.skin, 0, 0, m.hat))
+          .image(0, 0, this.avatarTexture(m.skin, 0, 0, m.hat, m.appearance))
           .setDisplaySize(64, 80)
           .setOrigin(0.5, 0.8375);
         const label = this.add
           .text(0, -70, "", {
-            fontFamily: "\"DM Sans\", sans-serif",
+            fontFamily: '"DM Sans", sans-serif',
             fontSize: "13px",
-        fontStyle: "bold",
-        resolution: 3,
+            fontStyle: "bold",
+            resolution: 3,
             color: "#fffaf0",
             backgroundColor: "#517a65",
             align: "center",
@@ -306,7 +336,7 @@ export class World extends Phaser.Scene {
         p.y - buyers[this.state.delivery.item].y,
       ) < 85
     )
-      return "Entregar carga";
+      return isNight(this.state) ? "Fechado" : "Entregar carga";
     let nearest = "Explorar",
       d = 100;
     const options: [string, { x: number; y: number }][] = [
@@ -321,6 +351,16 @@ export class World extends Phaser.Scene {
       ["Vender caju", points.fruitBuyer],
       ["Vender feijão", points.cropBuyer],
     ];
+    for (const item of ["caju", "feijao", "ovo"] as Produce[])
+      for (const point of sectors[item])
+        options.push([
+          item === "caju"
+            ? "Cuidar do pomar"
+            : item === "feijao"
+              ? "Cuidar do roçado"
+              : "Cuidar das galinhas",
+          point,
+        ]);
     for (const [name, t] of options) {
       const n = Math.hypot(p.x - t.x, p.y - t.y);
       if (n < d) {
@@ -328,7 +368,17 @@ export class World extends Phaser.Scene {
         d = n;
       }
     }
-    return nearest;
+    return isNight(this.state) &&
+      [
+        "Feira",
+        "Separar",
+        "Vender ovos",
+        "Vender caju",
+        "Vender feijão",
+        "Água",
+      ].includes(nearest)
+      ? "Fechado"
+      : nearest;
   }
   update(_t: number, delta: number) {
     for (const other of this.relatives.values()) {
@@ -344,12 +394,13 @@ export class World extends Phaser.Scene {
           dir,
           Math.hypot(dx, dy) > 2 ? Math.floor(_t / 150) % 4 : 0,
           other.member.hat,
+          other.member.appearance,
         ),
       );
     }
     if (!this.player) return;
     this.paintPickups(_t);
-    if (paused) return;
+    if (paused || !this.state.family[0].alive) return;
     let dx = stick.x,
       dy = stick.y;
     if (this.keys.left.isDown) dx = -1;
@@ -404,14 +455,24 @@ export class World extends Phaser.Scene {
   paintPickups(t: number) {
     this.drops.clear();
     this.pickupLabels.forEach((l) => l.setVisible(false));
-    if (this.state.location !== "farm") return;
+    if (
+      this.state.location !== "farm" ||
+      isNight(this.state) ||
+      !this.state.family[0].alive
+    )
+      return;
     const now = Date.now();
     let idx = 0;
     for (const item of ["ovo", "caju", "feijao"] as Produce[])
       for (const [i, p] of sectors[item].entries()) {
+        const field = this.state.production?.[item]?.[i];
         const remaining = Math.max(
           0,
-          Math.ceil(((this.state.pickups?.[`${item}:${i}`] || 0) - now) / 1000),
+          Math.ceil(
+            ((field?.readyAt || this.state.pickups?.[`${item}:${i}`] || 0) -
+              now) /
+              1000,
+          ),
         );
         let label = this.pickupLabels[idx];
         if (!label)
@@ -419,8 +480,8 @@ export class World extends Phaser.Scene {
             .text(p.x, p.y + 26, "", {
               fontFamily: "Georgia",
               fontSize: "13px",
-        fontStyle: "bold",
-        resolution: 3,
+              fontStyle: "bold",
+              resolution: 3,
               color: "#fff0c5",
               backgroundColor: "#60462de0",
               padding: { x: 5, y: 3 },
@@ -430,12 +491,14 @@ export class World extends Phaser.Scene {
         label
           .setVisible(true)
           .setText(
-            remaining
-              ? `${remaining}s`
-              : `${i + 1} · ${item === "ovo" ? "ovos" : item === "caju" ? "cajus" : "feijão"}`,
+            field && !field.readyAt
+              ? `${i + 1} · ${productionStatus(this.state, item, i)}`
+              : remaining
+                ? `${remaining}s`
+                : `${i + 1} · ${item === "ovo" ? "ovos" : item === "caju" ? "cajus" : "feijão"}`,
           );
         idx++;
-        if (remaining) continue;
+        if (remaining || (field && !field.readyAt)) continue;
         const g = this.drops,
           y = p.y + Math.sin(t / 280 + i) * 2;
         g.fillStyle(0x503720, 0.22).fillEllipse(p.x, y + 9, 37, 13);
@@ -478,13 +541,19 @@ export class World extends Phaser.Scene {
     const changed = s.location !== this.state.location;
     const redraw =
       changed ||
+      isNight(s) !== isNight(this.state) ||
       s.day !== this.state.day ||
-      JSON.stringify([s.trees, s.plots, s.decisions]) !==
+      JSON.stringify([s.trees, s.plots, s.decisions, s.production]) !==
         JSON.stringify([
           this.state.trees,
           this.state.plots,
           this.state.decisions,
+          this.state.production,
         ]);
+    const label = this.player?.list.find(
+      (child) => child instanceof Phaser.GameObjects.Text,
+    ) as Phaser.GameObjects.Text | undefined;
+    label?.setText(s.name + " · você");
     this.state = s;
     if (redraw) this.drawMap();
     if (changed) this.player.setPosition(s.x, s.y);
@@ -519,11 +588,14 @@ export function startWorld(
     audio: { noAudio: true },
     render: { antialias: true, powerPreference: "low-power" },
   });
-  const fitViewport = () => game.scale.resize(
-    Math.round(window.innerWidth * renderDensity),
-    Math.round(window.innerHeight * renderDensity),
-  );
+  const fitViewport = () =>
+    game.scale.resize(
+      Math.round(window.innerWidth * renderDensity),
+      Math.round(window.innerHeight * renderDensity),
+    );
   window.addEventListener("resize", fitViewport);
-  game.events.once(Phaser.Core.Events.DESTROY, () => window.removeEventListener("resize", fitViewport));
+  game.events.once(Phaser.Core.Events.DESTROY, () =>
+    window.removeEventListener("resize", fitViewport),
+  );
   return game;
 }

@@ -1,3 +1,4 @@
+import { catalog, type Appearance } from "../shared/appearance";
 import { paintExpandedFarm } from "./expanded-farm";
 import { WORLD } from "../shared/game";
 export const artSources: {
@@ -393,7 +394,7 @@ export function paintLandscape(
     return;
   }
   if (artSources.farm) {
-    paintExpandedFarm(c, artSources.farm, artSources.ground!, treasury);
+    paintExpandedFarm(c, artSources.farm, artSources.ground!, treasury, s);
     return;
   }
   let seed = 2701;
@@ -676,13 +677,14 @@ export function paintAvatar(
   dir: number,
   frame: number,
   hat: boolean,
+  appearance?: Appearance,
 ) {
   canvas.width = 128;
   canvas.height = 160;
   const c = canvas.getContext("2d")!;
   c.scale(2, 2);
   if (artSources.hero) {
-    paintRetroAvatar(c, shirt, dir, frame, hat);
+    paintRetroAvatar(c, shirt, dir, frame, hat, appearance);
     return;
   }
   c.translate(32, 67);
@@ -879,6 +881,7 @@ function paintRetroAvatar(
   dir: number,
   frame: number,
   hat: boolean,
+  appearance?: Appearance,
 ) {
   const img = artSources.hero!,
     w = img.naturalWidth,
@@ -898,7 +901,7 @@ function paintRetroAvatar(
     42,
     61,
   );
-  if (shirt !== "#d5906b") {
+  if (!appearance && shirt !== "#d5906b") {
     const pixels = c.getImageData(0, 0, 128, 160),
       data = pixels.data;
     for (let y = 56; y < 96; y++)
@@ -907,7 +910,7 @@ function paintRetroAvatar(
           r = data[i],
           g = data[i + 1],
           b = data[i + 2];
-        if (data[i + 3] > 100 && r > g * 1.8 && g > b * 1.2) {
+        if (data[i + 3] > 100 && r > g * 2.15 && g > b * 1.2) {
           const light = (r + g + b) / 3;
           if (shirt === "#709bac") {
             data[i] = light * 0.66;
@@ -921,6 +924,84 @@ function paintRetroAvatar(
         }
       }
     c.putImageData(pixels, 0, 0);
+  }
+  if (appearance) {
+    const colors = Object.fromEntries(
+      ["shirt", "pants", "shoes"].map((slot) => [
+        slot,
+        catalog.find(
+          (item) => item.id === appearance[slot as "shirt" | "pants" | "shoes"],
+        )?.color || "#704634",
+      ]),
+    );
+    const pixels = c.getImageData(0, 0, 128, 160),
+      data = pixels.data;
+    for (let y = 12; y < 134; y++)
+      for (let x = 22; x < 106; x++) {
+        const i = (y * 128 + x) * 4,
+          r = data[i],
+          g = data[i + 1],
+          b = data[i + 2];
+        if (data[i + 3] < 100) continue;
+        let color: string | undefined;
+        if (y >= 56 && y < 98 && r > g * 2.15 && g > b * 1.2)
+          color = colors.shirt;
+        else if (y >= 90 && y < 120 && b > r * 1.1) color = colors.pants;
+        else if (y >= 108 && r > b * 1.1 && Math.max(r, g, b) < 210)
+          color = colors.shoes;
+        else if (
+          (y < 60 || (y < 110 && r < g * 2.15)) &&
+          r > g * 1.15 &&
+          g > b * 1.1 &&
+          r > 90
+        )
+          color = appearance.tone;
+        if (
+          appearance.hair === "hair-cropped" &&
+          y < 52 &&
+          Math.max(r, g, b) < 85 &&
+          r > b
+        )
+          color = "#76503a";
+        if (color) {
+          const light = Math.max(
+            0.35,
+            Math.min(
+              1.35,
+              (r + g + b) / (color === appearance.tone ? 440 : 270),
+            ),
+          );
+          for (let k = 0; k < 3; k++)
+            data[i + k] = Math.min(
+              255,
+              parseInt(color.slice(1 + k * 2, 3 + k * 2), 16) * light,
+            );
+        }
+      }
+    c.putImageData(pixels, 0, 0);
+    if (appearance.hair === "hair-curls") {
+      c.fillStyle = "#38291f";
+      for (let i = 0; i < 7; i++) {
+        c.beginPath();
+        c.arc(
+          21 + i * 3.6,
+          12 - Math.sin((i / 6) * Math.PI) * 3,
+          4.4,
+          0,
+          Math.PI * 2,
+        );
+        c.fill();
+      }
+    } else if (appearance.hair === "hair-braid") {
+      c.fillStyle = "#38291f";
+      const x = dir === 1 ? 40 : 23;
+      for (let i = 0; i < 7; i++) {
+        c.beginPath();
+        c.ellipse(x + (i % 2), 19 + i * 2.7, 3, 2.5, 0, 0, Math.PI * 2);
+        c.fill();
+      }
+      box(c, x - 2, 36, 5, 2, "#bd744d");
+    }
   }
   if (hat) {
     box(c, 18, 13, 28, 5, "#6b4e38");
