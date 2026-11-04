@@ -1062,5 +1062,26 @@ export function paintNpc(canvas: HTMLCanvasElement, index: number) {
   const col = index % 3,
     row = Math.floor(index / 3);
   c.imageSmoothingEnabled = true;
-  c.drawImage(image, col * 512 + 112, row * 512 + 6, 292, 495, 13, 5, 38, 63);
+  const bounds = [
+    [146, 4, 255, 498],
+    [133, 18, 256, 487],
+    [135, 47, 281, 452],
+    [132, 6, 274, 483],
+    [149, 13, 217, 479],
+    [137, 9, 263, 485],
+  ][index];
+  const [x, y, w, h] = bounds;
+  const scale = 63 / h;
+  c.imageSmoothingQuality = "high";
+  c.drawImage(
+    image,
+    col * 512 + x,
+    row * 512 + y,
+    w,
+    h,
+    32 - (w * scale) / 2,
+    68 - h * scale,
+    w * scale,
+    h * scale,
+  );
 }

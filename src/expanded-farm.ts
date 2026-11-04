@@ -20,6 +20,7 @@ export function paintExpandedFarm(
     dy: number,
     dw = w,
     dh = h,
+    tree = false,
   ) {
     const tile = document.createElement("canvas");
     tile.width = Math.ceil(dw * 1.5);
@@ -31,24 +32,24 @@ export function paintExpandedFarm(
     t.globalCompositeOperation = "destination-in";
     const gx = t.createLinearGradient(0, 0, dw, 0);
     gx.addColorStop(0, "transparent");
-    gx.addColorStop(0.07, "black");
-    gx.addColorStop(0.93, "black");
+    gx.addColorStop(Math.min(0.06, (tree ? 9 : 3) / dw), "black");
+    gx.addColorStop(1 - Math.min(0.06, (tree ? 9 : 3) / dw), "black");
     gx.addColorStop(1, "transparent");
     t.fillStyle = gx;
     t.fillRect(0, 0, dw, dh);
     const gy = t.createLinearGradient(0, 0, 0, dh);
     gy.addColorStop(0, "transparent");
-    gy.addColorStop(0.07, "black");
-    gy.addColorStop(0.93, "black");
+    gy.addColorStop(Math.min(0.06, (tree ? 9 : 3) / dh), "black");
+    gy.addColorStop(1 - Math.min(0.06, (tree ? 9 : 3) / dh), "black");
     gy.addColorStop(1, "transparent");
     t.fillStyle = gy;
     t.fillRect(0, 0, dw, dh);
     c.drawImage(tile, dx, dy, dw, dh);
   }
   // House and cistern retain their original door positions for existing saves.
-  patch(65, 55, 415, 230, 65, 55);
-  patch(370, 143, 90, 95, 350, 105, 135, 143);
-  patch(548, 320, 110, 90, 548, 320);
+  patch(100, 55, 248, 222, 100, 55);
+  patch(366, 140, 144, 112, 350, 105, 158, 123);
+  patch(553, 320, 100, 85, 550, 310, 100, 85);
   // Sandy walking lanes separate the sectors; the southern lane is outside the fence.
   c.fillStyle = "#e3b67588";
   c.fillRect(1120, 70, 160, 1470);
@@ -57,43 +58,96 @@ export function paintExpandedFarm(
   for (const [i, p] of points.trees.entries()) {
     const young = state.production?.caju[i].young;
     patch(
-      572,
-      42,
-      180,
-      183,
-      p.x - (young ? 38 : 90),
-      p.y - (young ? 65 : 165),
-      young ? 76 : 180,
-      young ? 78 : 183,
+      577,
+      43,
+      190,
+      187,
+      p.x - (young ? 38 : 96),
+      p.y - (young ? 65 : 185),
+      young ? 76 : 192,
+      young ? 80 : 204,
+      true,
     );
   }
   for (const p of sectors.ovo)
-    patch(67, 374, 190, 218, p.x - 82, p.y - 168, 164, 188);
+    patch(64, 368, 196, 228, p.x - 86, p.y - 174, 172, 200);
   for (const [i, p] of sectors.feijao.entries()) {
-    if (state.production && !state.production.feijao[i].planted) {
-      c.fillStyle = state.production.feijao[i].prepared ? "#806044" : "#b69a67";
-      c.fillRect(p.x - 78, p.y - 91, 156, 120);
-      c.strokeStyle = "#654f38";
-      for (let row = 0; row < 5; row++) {
+    const field = state.production?.feijao[i];
+    const planted = field?.planted ?? true;
+    const wet = field?.watered ?? true;
+    const x = p.x - 78,
+      y = p.y - 91;
+    c.save();
+    c.shadowColor = "#533e3066";
+    c.shadowBlur = 5;
+    c.shadowOffsetY = 5;
+    c.fillStyle = "#765237";
+    c.beginPath();
+    c.roundRect(x - 4, y - 4, 164, 128, 9);
+    c.fill();
+    c.shadowColor = "transparent";
+    const soil = c.createLinearGradient(0, y, 0, y + 120);
+    soil.addColorStop(0, wet ? "#62472f" : "#98714c");
+    soil.addColorStop(1, wet ? "#81603e" : "#b08b5b");
+    c.fillStyle = soil;
+    c.fillRect(x + 2, y + 2, 152, 116);
+    for (let row = 0; row < 5; row++) {
+      c.strokeStyle = wet ? "#473626" : "#7d593a";
+      c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(x + 10, y + 15 + row * 22);
+      c.lineTo(x + 144, y + 15 + row * 22);
+      c.stroke();
+      c.strokeStyle = "#c6a47766";
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(x + 10, y + 12 + row * 22);
+      c.lineTo(x + 144, y + 12 + row * 22);
+      c.stroke();
+    }
+    // Complete wooden border and rounded stakes, including the empty-bed state.
+    c.strokeStyle = "#b58c5e";
+    c.lineWidth = 4;
+    c.strokeRect(x, y, 156, 120);
+    for (const xx of [x, x + 39, x + 78, x + 117, x + 156])
+      for (const yy of [y, y + 120]) {
+        c.fillStyle = "#5b3c28";
+        c.fillRect(xx - 4, yy - 7, 8, 13);
+        c.fillStyle = "#c3a273";
         c.beginPath();
-        c.moveTo(p.x - 68, p.y - 78 + row * 22);
-        c.lineTo(p.x + 68, p.y - 78 + row * 22);
-        c.stroke();
+        c.ellipse(xx, yy - 7, 5, 3, 0, 0, Math.PI * 2);
+        c.fill();
       }
-      continue;
-    }
-    patch(577, 469, 130, 100, p.x - 78, p.y - 91, 156, 120);
-    for (let j = 0; j < 15; j++) {
-      const x = p.x - 52 + (j % 5) * 25,
-        y = p.y - 62 + Math.floor(j / 5) * 22;
-      c.fillStyle = "#647445";
-      c.fillRect(x, y, 3, 13);
-      c.fillRect(x - 6, y - 4, 8, 4);
-      c.fillRect(x + 2, y - 8, 8, 4);
-      c.fillStyle = "#cbbb70";
-      c.fillRect(x + 7, y - 2, 3, 9);
-      c.fillRect(x - 4, y + 3, 3, 7);
-    }
+    if (planted)
+      for (let j = 0; j < 15; j++) {
+        const px = x + 23 + (j % 5) * 27,
+          py = y + 25 + Math.floor(j / 5) * 31;
+        c.strokeStyle = "#52603a";
+        c.lineWidth = 2;
+        c.beginPath();
+        c.moveTo(px, py + 12);
+        c.lineTo(px, py - 8);
+        c.stroke();
+        for (const [dx, dy, angle] of [
+          [-5, -3, -0.5],
+          [5, -7, 0.5],
+          [-4, -12, -0.5],
+        ]) {
+          c.fillStyle = j % 3 ? "#78844b" : "#667745";
+          c.beginPath();
+          c.ellipse(px + dx, py + dy, 6, 3, angle, 0, Math.PI * 2);
+          c.fill();
+        }
+        if (field?.readyAt && field.readyAt <= Date.now()) {
+          c.strokeStyle = "#d0b873";
+          c.lineWidth = 3;
+          c.beginPath();
+          c.moveTo(px + 5, py - 3);
+          c.quadraticCurveTo(px + 10, py + 4, px + 6, py + 10);
+          c.stroke();
+        }
+      }
+    c.restore();
   }
   // Caatinga from the same painting, kept away from the routes and pickup spots.
   for (const [x, y] of [
@@ -107,7 +161,7 @@ export function paintExpandedFarm(
     [50, 280],
     [2280, 70],
   ])
-    patch(315, 574, 180, 142, x, y, 160, 126);
+    patch(316, 563, 184, 153, x, y, 166, 138);
   patch(1020, 485, 235, 225, 740, 600, 235, 225);
   const fence = (x: number, y: number, w: number) => {
     c.fillStyle = "#63442d";
@@ -139,10 +193,10 @@ export function paintExpandedFarm(
   sign(1810, 740, "ROÇADO · 10 canteiros");
   sign(1200, 1330, "PORTEIRA ↓ COMPRADORES");
   sign(430, 1470, "ESTRADA DA COMUNIDADE →");
-  patch(260, 410, 90, 110, points.eggBuyer.x - 45, 1435, 90, 110);
-  patch(960, 270, 100, 100, points.fruitBuyer.x - 50, 1435, 100, 100);
-  patch(860, 475, 125, 110, points.cropBuyer.x - 63, 1435, 125, 110);
-  patch(1030, 85, 225, 195, points.market.x - 112, 1360, 225, 195);
+  patch(260, 402, 94, 112, points.eggBuyer.x - 47, 1428, 94, 112);
+  patch(945, 262, 105, 110, points.fruitBuyer.x - 53, 1428, 105, 110);
+  patch(854, 472, 132, 114, points.cropBuyer.x - 66, 1428, 132, 114);
+  patch(1028, 80, 246, 202, points.market.x - 123, 1355, 246, 202);
   if (isNight(state)) {
     for (const p of [
       points.market,
