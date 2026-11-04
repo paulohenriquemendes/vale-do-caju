@@ -33,6 +33,8 @@ try {
     "family-retro.png",
     "farmer-retro.png",
     "ground-expanded.png",
+    "cashew-transparent.png",
+    "pond-transparent.png",
   ]) {
     const response = await fetch(`${base}/assets/${asset}`);
     assert.equal(response.status, 200);
@@ -99,7 +101,7 @@ try {
   }
   await a("save", undefined, 401);
   console.log(
-    "PASS: hosted page, JS, four textures, guest sessions, persistent delivery, idempotency, account isolation, four online siblings and logout.",
+    "PASS: hosted page, JS, six textures, guest sessions, persistent delivery, idempotency, account isolation, four online siblings and logout.",
   );
 } finally {
   mkdirSync(".data", { recursive: true });

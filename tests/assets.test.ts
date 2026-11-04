@@ -23,6 +23,9 @@ test(
       "farm-retro.png",
       "farmer-retro.png",
       "family-retro.png",
+      "ground-expanded.png",
+      "cashew-transparent.png",
+      "pond-transparent.png",
     ]) {
       const image = await fetch(base + "/assets/" + file);
       assert.equal(image.status, 200);

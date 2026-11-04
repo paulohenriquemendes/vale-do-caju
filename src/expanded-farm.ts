@@ -7,6 +7,8 @@ export function paintExpandedFarm(
   ground: HTMLImageElement,
   treasury: number,
   state: State,
+  cashew: HTMLImageElement,
+  pond: HTMLImageElement,
 ) {
   const sx = image.naturalWidth / 1280,
     sy = image.naturalHeight / 800;
@@ -20,7 +22,6 @@ export function paintExpandedFarm(
     dy: number,
     dw = w,
     dh = h,
-    tree = false,
   ) {
     const tile = document.createElement("canvas");
     tile.width = Math.ceil(dw * 1.5);
@@ -32,15 +33,15 @@ export function paintExpandedFarm(
     t.globalCompositeOperation = "destination-in";
     const gx = t.createLinearGradient(0, 0, dw, 0);
     gx.addColorStop(0, "transparent");
-    gx.addColorStop(Math.min(0.06, (tree ? 9 : 3) / dw), "black");
-    gx.addColorStop(1 - Math.min(0.06, (tree ? 9 : 3) / dw), "black");
+    gx.addColorStop(Math.min(0.06, 6 / dw), "black");
+    gx.addColorStop(1 - Math.min(0.06, 6 / dw), "black");
     gx.addColorStop(1, "transparent");
     t.fillStyle = gx;
     t.fillRect(0, 0, dw, dh);
     const gy = t.createLinearGradient(0, 0, 0, dh);
     gy.addColorStop(0, "transparent");
-    gy.addColorStop(Math.min(0.06, (tree ? 9 : 3) / dh), "black");
-    gy.addColorStop(1 - Math.min(0.06, (tree ? 9 : 3) / dh), "black");
+    gy.addColorStop(Math.min(0.06, 6 / dh), "black");
+    gy.addColorStop(1 - Math.min(0.06, 6 / dh), "black");
     gy.addColorStop(1, "transparent");
     t.fillStyle = gy;
     t.fillRect(0, 0, dw, dh);
@@ -51,23 +52,40 @@ export function paintExpandedFarm(
   patch(366, 140, 144, 112, 350, 105, 158, 123);
   patch(553, 320, 100, 85, 550, 310, 100, 85);
   // Sandy walking lanes separate the sectors; the southern lane is outside the fence.
-  c.fillStyle = "#e3b67588";
-  c.fillRect(1120, 70, 160, 1470);
-  c.fillRect(60, 1240, 2440, 100);
-  c.fillRect(60, 1420, 2440, 200);
+  // Broad feathered lanes blend into the same continuous ground texture.
+  // Hard fillRect overlays previously looked like unfinished floor tiles.
+  function lane(x: number, y: number, w: number, h: number, vertical = false) {
+    const gradient = c.createLinearGradient(
+      x,
+      y,
+      vertical ? x + w : x,
+      vertical ? y : y + h,
+    );
+    gradient.addColorStop(0, "#e3b67500");
+    gradient.addColorStop(0.3, "#e3b67555");
+    gradient.addColorStop(0.7, "#e3b67555");
+    gradient.addColorStop(1, "#e3b67500");
+    c.fillStyle = gradient;
+    c.fillRect(x, y, w, h);
+  }
+  lane(1100, 0, 200, WORLD.height, true);
+  lane(0, 1220, WORLD.width, 140);
+  lane(0, 1400, WORLD.width, 240);
   for (const [i, p] of points.trees.entries()) {
     const young = state.production?.caju[i].young;
-    patch(
-      577,
-      43,
-      190,
-      187,
-      p.x - (young ? 38 : 96),
-      p.y - (young ? 65 : 185),
-      young ? 76 : 192,
-      young ? 80 : 204,
-      true,
+    c.save();
+    c.fillStyle = "#55452d30";
+    c.beginPath();
+    c.ellipse(p.x, p.y + 1, young ? 23 : 55, young ? 7 : 16, 0, 0, Math.PI * 2);
+    c.fill();
+    c.drawImage(
+      cashew,
+      p.x - (young ? 43 : 108),
+      p.y - (young ? 73 : 205),
+      young ? 86 : 216,
+      young ? 90 : 228,
     );
+    c.restore();
   }
   for (const p of sectors.ovo)
     patch(64, 368, 196, 228, p.x - 86, p.y - 174, 172, 200);
@@ -149,20 +167,9 @@ export function paintExpandedFarm(
       }
     c.restore();
   }
-  // Caatinga from the same painting, kept away from the routes and pickup spots.
-  for (const [x, y] of [
-    [620, 110],
-    [850, 160],
-    [960, 340],
-    [500, 1070],
-    [700, 1100],
-    [220, 1120],
-    [2320, 1230],
-    [50, 280],
-    [2280, 70],
-  ])
-    patch(316, 500, 184, 216, x, y, 166, 195);
-  patch(1020, 485, 235, 225, 740, 600, 235, 225);
+  // The ground painting already contains caatinga. Additional rectangular
+  // copies cut vegetation at their borders and hid the continuous terrain.
+  c.drawImage(pond, 740, 600, 235, 225);
   const fence = (x: number, y: number, w: number) => {
     c.fillStyle = "#63442d";
     c.fillRect(x, y - 24, w, 7);

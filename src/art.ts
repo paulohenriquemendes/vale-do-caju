@@ -4,6 +4,8 @@ import { WORLD } from "../shared/game";
 export const artSources: {
   farm?: HTMLImageElement;
   ground?: HTMLImageElement;
+  cashew?: HTMLImageElement;
+  pond?: HTMLImageElement;
   hero?: HTMLImageElement;
   npcs?: HTMLImageElement;
 } = {};
@@ -15,6 +17,8 @@ export function loadArtwork(progress: (value: number) => void = () => {}) {
         Object.entries({
           farm: "/assets/farm-retro.png",
           ground: "/assets/ground-expanded.png",
+          cashew: "/assets/cashew-transparent.png",
+          pond: "/assets/pond-transparent.png",
           hero: "/assets/farmer-retro.png",
           npcs: "/assets/family-retro.png",
         }) as [keyof typeof artSources, string][]
@@ -24,7 +28,7 @@ export function loadArtwork(progress: (value: number) => void = () => {}) {
             const img = new Image();
             img.onload = () => {
               artSources[key] = img;
-              progress(Object.keys(artSources).length / 4);
+              progress(Object.keys(artSources).length / 6);
               resolve();
             };
             img.onerror = () =>
@@ -394,7 +398,15 @@ export function paintLandscape(
     return;
   }
   if (artSources.farm) {
-    paintExpandedFarm(c, artSources.farm, artSources.ground!, treasury, s);
+    paintExpandedFarm(
+      c,
+      artSources.farm,
+      artSources.ground!,
+      treasury,
+      s,
+      artSources.cashew!,
+      artSources.pond!,
+    );
     return;
   }
   let seed = 2701;
