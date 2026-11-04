@@ -161,7 +161,7 @@ export function paintExpandedFarm(
     [50, 280],
     [2280, 70],
   ])
-    patch(316, 563, 184, 153, x, y, 166, 138);
+    patch(316, 500, 184, 216, x, y, 166, 195);
   patch(1020, 485, 235, 225, 740, 600, 235, 225);
   const fence = (x: number, y: number, w: number) => {
     c.fillStyle = "#63442d";
