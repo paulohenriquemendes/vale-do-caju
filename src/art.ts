@@ -890,17 +890,37 @@ function paintRetroAvatar(
     tops = [0.01, 0.25, 0.49, 0.735];
   c.imageSmoothingEnabled = true;
   c.imageSmoothingQuality = "high";
-  c.drawImage(
-    img,
-    (centers[frame] - 0.085) * w,
-    tops[dir] * h,
-    0.17 * w,
-    0.242 * h,
-    11,
-    6,
-    42,
-    61,
-  );
+  if (appearance?.gender === "mulher") {
+    // A separate silhouette in all four walking directions, using the same shaded artwork.
+    for (let row = 0; row < 122; row++) {
+      const y = 6 + row / 2;
+      const taper = y < 29 ? 0.96 : y < 44 ? 0.87 : y < 54 ? 0.98 : 0.93;
+      const width = 42 * taper;
+      c.drawImage(
+        img,
+        (centers[frame] - 0.085) * w,
+        tops[dir] * h + (row / 122) * 0.242 * h,
+        0.17 * w,
+        (0.242 * h) / 122,
+        32 - width / 2,
+        y,
+        width,
+        0.5,
+      );
+    }
+  } else {
+    c.drawImage(
+      img,
+      (centers[frame] - 0.085) * w,
+      tops[dir] * h,
+      0.17 * w,
+      0.242 * h,
+      11,
+      6,
+      42,
+      61,
+    );
+  }
   if (!appearance && shirt !== "#d5906b") {
     const pixels = c.getImageData(0, 0, 128, 160),
       data = pixels.data;
@@ -979,6 +999,27 @@ function paintRetroAvatar(
         }
       }
     c.putImageData(pixels, 0, 0);
+    if (
+      appearance.gender === "mulher" &&
+      ["hair-short", "hair-cropped"].includes(appearance.hair)
+    ) {
+      c.fillStyle = appearance.hair === "hair-cropped" ? "#76503a" : "#38291f";
+      for (const x of dir === 1 ? [40] : dir === 2 ? [20] : [20, 40]) {
+        c.beginPath();
+        c.moveTo(x, 16);
+        c.quadraticCurveTo(x - 2, 24, x, 33);
+        c.quadraticCurveTo(x + 4, 34, x + 5, 31);
+        c.lineTo(x + 4, 18);
+        c.closePath();
+        c.fill();
+        c.strokeStyle = "#684b37";
+        c.lineWidth = 0.7;
+        c.beginPath();
+        c.moveTo(x + 1, 20);
+        c.lineTo(x + 2, 31);
+        c.stroke();
+      }
+    }
     if (appearance.hair === "hair-curls") {
       c.fillStyle = "#38291f";
       for (let i = 0; i < 7; i++) {

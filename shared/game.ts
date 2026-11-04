@@ -229,6 +229,7 @@ export type Action = {
   name?: string;
   activity?: string;
   tone?: string;
+  gender?: "homem" | "mulher";
   target?: number;
   item?: Item;
   quantity?: number;
@@ -239,6 +240,7 @@ export type Action = {
 export function restore(saved: State): State {
   const s = structuredClone(saved);
   s.appearance ??= starter("", s.skin);
+  s.appearance.gender ??= "homem";
   s.owned ??= Object.values(s.appearance).filter((id) =>
     catalog.some((c) => c.id === id),
   );
@@ -419,6 +421,11 @@ export function act(s: State, a: Action, now = Date.now()): State {
       if (meal === 2) s.minute = 1140;
     }
   } else if (a.kind === "appearance") {
+    if (a.gender !== undefined) {
+      if (!["homem", "mulher"].includes(a.gender))
+        throw Error("Personagem inválido.");
+      s.appearance.gender = a.gender;
+    }
     if (a.tone !== undefined) {
       if (!tones.includes(a.tone)) throw Error("Tom de pele inválido.");
       s.appearance.tone = a.tone;

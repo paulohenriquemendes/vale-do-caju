@@ -909,7 +909,7 @@ function roster() {
     cooperative.members
       .map(
         (m) =>
-          `<div class="relative-row"><i class="online-dot"></i><div><strong>${esc(m.name)} ${m.id === account!.id ? "· você" : "· irmão"}</strong><small>${roleNames[m.role] || roleNames.livre}${m.location === "home" ? " · em casa" : ""}</small></div></div>`,
+          `<div class="relative-row"><i class="online-dot"></i><div><strong>${esc(m.name)} ${m.id === account!.id ? "· você" : m.appearance?.gender === "mulher" ? "· irmã" : "· irmão"}</strong><small>${roleNames[m.role] || roleNames.livre}${m.location === "home" ? " · em casa" : ""}</small></div></div>`,
       )
       .join("") || "<p>Conectando a família…</p>"
   );
@@ -927,7 +927,7 @@ function refreshRoster() {
 function siblings() {
   modal(
     "Uma família, muitas mãos",
-    `<p>Mãe Rosa e Pai João acolhem todos no sítio. Cada jogador online é um irmão, com seu nome e sua atividade.</p><label>Hoje eu vou ajudar…<select id="choose-role">${Object.entries(
+    `<p>Mãe Rosa e Pai João acolhem todos no sítio. Cada pessoa online é um irmão ou uma irmã, com seu nome e sua atividade.</p><label>Hoje eu vou ajudar…<select id="choose-role">${Object.entries(
       roleNames,
     )
       .map(
@@ -1044,7 +1044,7 @@ function wardrobe() {
   const owned = state.owned || Object.values(look);
   modal(
     "Nome e personagem",
-    `<form id="rename-form"><label>Nome do personagem<input id="character-name" value="${esc(state.name)}" minlength="2" maxlength="30" required autocomplete="nickname"></label><button class="primary" type="submit">Salvar nome</button></form><div class="wardrobe-intro"><canvas id="outfit-preview" aria-label="Seu personagem com o visual equipado"></canvas><div><div class="eyebrow">DO SEU JEITO</div><p>Roupas para o trabalho e para o domingo.</p><strong>${money(state.money)}</strong><small>Somente dinheiro do jogo. O visual não muda sua produção.</small></div></div><h3>Tom de pele · gratuito</h3><div class="tone-options">${tones.map((tone, i) => `<button data-tone="${tone}" aria-label="Tom de pele ${i + 1}" aria-pressed="${look.tone === tone}" style="--tone:${tone}"></button>`).join("")}</div>${(
+    `<form id="rename-form"><label>Nome do personagem<input id="character-name" value="${esc(state.name)}" minlength="2" maxlength="30" required autocomplete="nickname"></label><button class="primary" type="submit">Salvar nome</button></form><fieldset class="character-choice"><legend>Seu personagem · escolha gratuita</legend><div class="grid">${["homem", "mulher"].map((gender) => `<button type="button" data-gender="${gender}" aria-pressed="${(look.gender || "homem") === gender}">${gender === "homem" ? "Homem" : "Mulher"}${(look.gender || "homem") === gender ? " · selecionado" : ""}</button>`).join("")}</div></fieldset><div class="wardrobe-intro"><canvas id="outfit-preview" aria-label="Seu personagem com o visual equipado"></canvas><div><div class="eyebrow">DO SEU JEITO</div><p>Roupas para o trabalho e para o domingo.</p><strong>${money(state.money)}</strong><small>Somente dinheiro do jogo. O visual não muda sua produção.</small></div></div><h3>Tom de pele · gratuito</h3><div class="tone-options">${tones.map((tone, i) => `<button data-tone="${tone}" aria-label="Tom de pele ${i + 1}" aria-pressed="${look.tone === tone}" style="--tone:${tone}"></button>`).join("")}</div>${(
       ["shirt", "pants", "shoes", "hair"] as const
     )
       .map(
@@ -1062,6 +1062,23 @@ function wardrobe() {
         "",
       )}<p class="muted">Sua primeira roupa já é sua. Depois de comprar, você pode usar novamente sem pagar.</p>`,
     () => {
+      document.querySelectorAll<HTMLButtonElement>("[data-gender]").forEach(
+        (button) =>
+          (button.onclick = async () => {
+            if (
+              await perform(
+                {
+                  kind: "appearance",
+                  gender: button.dataset.gender as "homem" | "mulher",
+                },
+                "Personagem atualizado!",
+              )
+            ) {
+              wardrobe();
+              void heartbeat();
+            }
+          }),
+      );
       document.getElementById("rename-form")!.onsubmit = async (event) => {
         event.preventDefault();
         if (
@@ -1140,7 +1157,7 @@ function parentConversation(blessed = false) {
   }
   modal(
     name,
-    `<p>— A bênção, ${father ? "pai" : "mãe"}!</p><p>— Deus te abençoe, meu filho! ${father ? "Divida o serviço com seus irmãos e não esqueça de beber água e comer. Depois do jantar, todo mundo descansa até o sol nascer." : "O sol aperta. Venha beber água sempre que precisar. A merenda sai às 9h, o almoço às 12h e o jantar a partir das 17h."}</p>${father ? "" : `<div class="grid"><button id="mother-water">Pedir água · grátis</button>${["Merenda", "Almoço", "Jantar"].map((meal, i) => `<button data-meal="${i}" ${state!.meals?.includes(meal) || state!.minute < [540, 720, 1020][i] ? "disabled" : ""}>Pedir ${meal.toLowerCase()}${state!.meals?.includes(meal) ? " · já comeu" : ""}</button>`).join("")}</div><small>Refeições da casa gratuitas, uma de cada por dia. A água sai da cisterna.</small>`}`,
+    `<p>— A bênção, ${father ? "pai" : "mãe"}!</p><p>— Deus te abençoe, ${state!.appearance?.gender === "mulher" ? "minha filha" : "meu filho"}! ${father ? "Divida o serviço com seus irmãos e não esqueça de beber água e comer. Depois do jantar, todo mundo descansa até o sol nascer." : "O sol aperta. Venha beber água sempre que precisar. A merenda sai às 9h, o almoço às 12h e o jantar a partir das 17h."}</p>${father ? "" : `<div class="grid"><button id="mother-water">Pedir água · grátis</button>${["Merenda", "Almoço", "Jantar"].map((meal, i) => `<button data-meal="${i}" ${state!.meals?.includes(meal) || state!.minute < [540, 720, 1020][i] ? "disabled" : ""}>Pedir ${meal.toLowerCase()}${state!.meals?.includes(meal) ? " · já comeu" : ""}</button>`).join("")}</div><small>Refeições da casa gratuitas, uma de cada por dia. A água sai da cisterna.</small>`}`,
     () => {
       on("mother-water", async () => {
         if (

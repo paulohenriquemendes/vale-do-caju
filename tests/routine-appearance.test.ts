@@ -11,6 +11,28 @@ import {
 } from "../shared/game";
 import { catalog, tones } from "../shared/appearance";
 
+test("man or woman selection is free, reversible and preserves progress and wardrobe", () => {
+  let s = act(initial("Ana"), { kind: "appearance", cosmetic: "hair-braid" });
+  const before = structuredClone(s);
+  s = act(s, { kind: "appearance", gender: "mulher" });
+  assert.equal(s.appearance.gender, "mulher");
+  assert.equal(s.money, before.money);
+  assert.equal(s.appearance.hair, "hair-braid");
+  assert.deepEqual(s.owned, before.owned);
+  assert.deepEqual(s.production, before.production);
+  assert.equal(
+    restore(JSON.parse(JSON.stringify(s))).appearance.gender,
+    "mulher",
+  );
+  assert.equal(
+    act(s, { kind: "appearance", gender: "homem" }).appearance.gender,
+    "homem",
+  );
+  delete (s.appearance as any).gender;
+  assert.equal(restore(s).appearance.gender, "homem");
+  assert.throws(() => act(s, { kind: "appearance", gender: "invalid" as any }));
+});
+
 test("renaming keeps progress and rejects blank names and markup", () => {
   const original = initial("Antes");
   original.money = 37.45;
@@ -158,7 +180,7 @@ test("four siblings share an IP without sharing limits, purchases or wardrobe", 
   const command = {
     id: randomUUID(),
     version: before.version,
-    action: { kind: "appearance", cosmetic: "hair-curls" },
+    action: { kind: "appearance", cosmetic: "hair-curls", gender: "mulher" },
   };
   const attempts = await Promise.all([
     request("action", c.cookie, command),
@@ -166,12 +188,20 @@ test("four siblings share an IP without sharing limits, purchases or wardrobe", 
   ]);
   assert.ok(attempts.every((r) => r.status === 200));
   assert.equal((await request("save", c.cookie)).body.money, 55);
+  assert.equal(
+    (await request("save", c.cookie)).body.appearance.gender,
+    "mulher",
+  );
   const roster = (
     await request("family/heartbeat", clients[1].cookie, presence)
   ).body.members;
   assert.equal(
     roster.find((m: any) => m.id === c.body.id).appearance.hair,
     "hair-curls",
+  );
+  assert.equal(
+    roster.find((m: any) => m.id === c.body.id).appearance.gender,
+    "mulher",
   );
   assert.equal((await request("save", clients[1].cookie)).body.money, 80);
   await request("family/leave", c.cookie, {});

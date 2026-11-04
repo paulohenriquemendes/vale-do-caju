@@ -1,5 +1,8 @@
 export type Slot = "shirt" | "pants" | "shoes" | "hair";
-export type Appearance = Record<Slot, string> & { tone: string };
+export type Appearance = Record<Slot, string> & {
+  tone: string;
+  gender: "homem" | "mulher";
+};
 export const tones = [
   "#f0c7a4",
   "#dba479",
@@ -84,5 +87,6 @@ export function starter(seed = "", skin = "terracota"): Appearance {
     shoes: `shoes-${Math.floor(hash / 24) % 3}`,
     hair: "hair-short",
     tone: tones[2],
+    gender: "homem",
   };
 }

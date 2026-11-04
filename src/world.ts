@@ -316,7 +316,11 @@ export class World extends Phaser.Scene {
         this.relatives.set(m.id, other);
       }
       other.member = m;
-      other.label.setText(m.name + " · irmão\n" + titles[m.role]);
+      other.label.setText(
+        m.name +
+          (m.appearance?.gender === "mulher" ? " · irmã\n" : " · irmão\n") +
+          titles[m.role],
+      );
       other.container.setVisible(m.location === this.state.location);
     }
     for (const [id, other] of this.relatives)

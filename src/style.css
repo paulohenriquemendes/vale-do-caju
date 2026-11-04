@@ -1705,3 +1705,18 @@ button.ghost {
     width: 215px;
   }
 }
+
+.character-choice {
+  border: 1px solid #b89d77;
+  padding: 14px;
+  margin: 0 0 20px;
+}
+.character-choice legend {
+  font-weight: 700;
+  padding: 0 6px;
+}
+.character-choice button[aria-pressed="true"] {
+  background: #46634c;
+  outline: 2px solid #bda16d;
+  outline-offset: 2px;
+}

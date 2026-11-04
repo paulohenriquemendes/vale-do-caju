@@ -317,6 +317,7 @@ const command = z.object({
     name: z.string().trim().min(2).max(30).optional(),
     activity: z.enum(["prepare", "plant", "water", "feed", "clean"]).optional(),
     cosmetic: z.string().max(40).optional(),
+    gender: z.enum(["homem", "mulher"]).optional(),
     tone: z.string().max(7).optional(),
     target: z.number().int().optional(),
     item: z
